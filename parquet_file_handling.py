@@ -1,5 +1,4 @@
 import dataclasses
-
 import pathlib as pl
 import warnings
 from typing import List
@@ -27,7 +26,6 @@ class MonthIdentifier:
 
 
 def parquet_file_name(month_id: MonthIdentifier) -> str:
-
     return f'yellow_tripdata_{month_id.year}-{month_id.month:02}.parquet'
 
 
@@ -88,7 +86,6 @@ def get_months_in_range_inclusive(start: MonthIdentifier, end: MonthIdentifier) 
     return months
 
 
-
 def get_daily_means_in_range(start: MonthIdentifier, end: MonthIdentifier) -> pd.DataFrame:
     months = get_months_in_range_inclusive(start, end)
 
@@ -99,4 +96,3 @@ def get_daily_means_in_range(start: MonthIdentifier, end: MonthIdentifier) -> pd
 
     daily_means_df = pd.concat(daily_means)
     return daily_means_df
-
