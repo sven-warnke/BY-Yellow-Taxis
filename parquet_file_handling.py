@@ -50,3 +50,7 @@ def load_filtered_parquet_file(year: int, month: int) -> pd.DataFrame:
 def daily_means_from_df(df: pd.DataFrame) -> pd.DataFrame:
     df['date'] = df['tpep_pickup_datetime'].dt.date
     return df.groupby('date', as_index=False)[['trip_distance', 'trip_length_time']].mean()
+
+
+def get_daily_means_in_range(start: ) -> pd.DataFrame:
+    return daily_means_from_df(load_filtered_parquet_file(year, month))
