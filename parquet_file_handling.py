@@ -3,15 +3,13 @@ import warnings
 
 import pandas as pd
 
-DATA_FOLDER = pl.Path(__file__) / 'data'
+DATA_FOLDER = pl.Path(__file__).parent / 'data'
 DEFINING_TIME_COLUMN = 'tpep_pickup_datetime'
 
 
 def parquet_file_name(year: int, month: int) -> str:
-    if year < 2019 or year > 2023:
-        raise ValueError('Year must be between 2019 and 2023')
     if month < 1 or month > 12:
-        raise ValueError('Month must be between 1 and 12')
+        raise ValueError(f'Month must be between 1 and 12, got {month}')
 
     return f'yellow_tripdata_{year}-{month:02}.parquet'
 
@@ -36,10 +34,11 @@ def load_parquet_file(year: int, month: int) -> pd.DataFrame:
 def filter_df_for_correct_time(df: pd.DataFrame, year: int, month: int) -> pd.DataFrame:
     time_period = pd.Period(year=year, month=month, freq='M')
 
-    invalid_indices = (df[DEFINING_TIME_COLUMN] < time_period.start_time) & (
-                df[DEFINING_TIME_COLUMN] >= time_period.end_time)
+    invalid_indices = (df[DEFINING_TIME_COLUMN] < time_period.start_time) | (
+            df[DEFINING_TIME_COLUMN] >= time_period.end_time)
     if invalid_indices.any():
-        warnings.warn(f'Found {invalid_indices.sum()} entries with invalid time in {year}-{month:02}')
+        warnings.warn(
+            f'Found {invalid_indices.sum()} entries with invalid time in {year}-{month:02}. They will be removed.')
 
     return df[~invalid_indices]
 
@@ -49,4 +48,5 @@ def load_filtered_parquet_file(year: int, month: int) -> pd.DataFrame:
 
 
 def daily_means_from_df(df: pd.DataFrame) -> pd.DataFrame:
-    return df.groupby(df['tpep_pickup_datetime'].dt.date)[['trip_distance', 'trip_length_time']].mean()
+    df['date'] = df['tpep_pickup_datetime'].dt.date
+    return df.groupby('date', as_index=False)[['trip_distance', 'trip_length_time']].mean()
