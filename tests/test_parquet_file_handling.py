@@ -3,18 +3,30 @@ import pytest
 import pandas as pd
 
 
-def test_month_identifier():
-    with pytest.raises(ValueError):
-        parquet_file_handling.MonthIdentifier(2020, 13)
-    with pytest.raises(ValueError):
-        parquet_file_handling.MonthIdentifier(2020, 0)
-    assert parquet_file_handling.MonthIdentifier(2020, 1) < parquet_file_handling.MonthIdentifier(2020, 2)
-    assert parquet_file_handling.MonthIdentifier(2020, 1) <= parquet_file_handling.MonthIdentifier(2020, 2)
-    assert parquet_file_handling.MonthIdentifier(2020, 1) == parquet_file_handling.MonthIdentifier(2020, 1)
-    assert parquet_file_handling.MonthIdentifier(2020, 2) > parquet_file_handling.MonthIdentifier(2020, 1)
-
-
 class TestMonthIdentifier:
+
+    @pytest.mark.parametrize('year, month', [
+        (2020, 13),
+        (2020, 0),
+    ])
+    def test_raises_on_invalid_input(self, year, month):
+        with pytest.raises(ValueError):
+            parquet_file_handling.MonthIdentifier(year, month)
+
+    def test_lt(self):
+        assert parquet_file_handling.MonthIdentifier(2020, 1) < parquet_file_handling.MonthIdentifier(2020, 2)
+        assert not parquet_file_handling.MonthIdentifier(2020, 2) < parquet_file_handling.MonthIdentifier(2020, 1)
+        assert not parquet_file_handling.MonthIdentifier(2020, 1) < parquet_file_handling.MonthIdentifier(2020, 1)
+
+    def test_le(self):
+        assert parquet_file_handling.MonthIdentifier(2020, 1) <= parquet_file_handling.MonthIdentifier(2020, 2)
+        assert not parquet_file_handling.MonthIdentifier(2020, 2) <= parquet_file_handling.MonthIdentifier(2020, 1)
+        assert parquet_file_handling.MonthIdentifier(2020, 1) <= parquet_file_handling.MonthIdentifier(2020, 1)
+
+    def test_eq(self):
+        assert parquet_file_handling.MonthIdentifier(2020, 1) == parquet_file_handling.MonthIdentifier(2020, 1)
+        assert not parquet_file_handling.MonthIdentifier(2020, 1) == parquet_file_handling.MonthIdentifier(2020, 2)
+
     @pytest.mark.parametrize('year, month, expected', [
         (2020, 1, pd.Timestamp('2020-01', tz='UTC')),
         (2020, 12, pd.Timestamp('2020-12', tz='UTC')),
