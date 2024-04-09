@@ -37,10 +37,10 @@ class MonthIdentifier:
         return MonthIdentifier(self.year + (self.month + 1) // 13, (self.month % 12) + 1)
 
     def start_timestamp(self) -> pd.Timestamp:
-        return pd.Timestamp(year=self.year, month=self.month, day=1, tz=ASSUMED_ORIGIN_TZ)
+        return pd.Period(year=self.year, month=self.month, freq='M').start_time.tz_localize(ASSUMED_ORIGIN_TZ)
 
     def end_timestamp(self) -> pd.Timestamp:
-        return self.start_timestamp().to_period('M').end_time.tz_localize(ASSUMED_ORIGIN_TZ)
+        return pd.Period(year=self.year, month=self.month, freq='M').end_time.tz_localize(ASSUMED_ORIGIN_TZ)
 
 
 def parquet_file_name(month_id: MonthIdentifier) -> str:
