@@ -2363,6 +2363,18 @@ doc = ["sphinx", "sphinx_rtd_theme"]
 test = ["flake8", "isort", "pytest"]
 
 [[package]]
+name = "tinyflux"
+version = "0.4.1"
+description = "The Tiny Time-Series Database Optimized for Your Happiness"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "tinyflux-0.4.1-py3-none-any.whl", hash = "sha256:4bdc04dc9cde2cc5610cfb98c817e808782d518a3a5136afe751e9c001f4e902"},
+    {file = "tinyflux-0.4.1.tar.gz", hash = "sha256:47847c90e5748a76193d8c1b448cc1878eb23b3a2ab8d37a7f025f90043f0466"},
+]
+
+[[package]]
 name = "tomli"
 version = "2.0.1"
 description = "A lil' TOML parser"
@@ -2552,4 +2564,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "f518f68649d90ac00f7f7b8488ea0480ef4e94796400d65687cfcf3594b25460"
+content-hash = "e8b992b06695f843acb6d6c5754d6c116c2f0dad59e2856648e5b6807b8f33ad"
