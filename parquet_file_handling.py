@@ -67,8 +67,8 @@ def filter_df_for_correct_time(df: pd.DataFrame, month_id: MonthIdentifier) -> p
     buffer_slight_overlap = pd.Timedelta(1,
                                          unit='hour')  # parquet files sometimes include a few entries from the next or previous month
 
-    start_limit = time_period.start_time - buffer_slight_overlap
-    end_limit = time_period.end_time + buffer_slight_overlap
+    start_limit = time_period.start_time.tz_localize(ASSUMED_ORIGIN_TZ) - buffer_slight_overlap
+    end_limit = time_period.end_time.tz_localize(ASSUMED_ORIGIN_TZ) + buffer_slight_overlap
 
     out_of_range_indices = (df[DEFINING_TIME_COLUMN] < start_limit) | (
             df[DEFINING_TIME_COLUMN] >= end_limit)
