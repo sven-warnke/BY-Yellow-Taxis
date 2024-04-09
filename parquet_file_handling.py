@@ -31,8 +31,6 @@ class MonthIdentifier:
         return MonthIdentifier(self.year + (self.month + 1) // 13, (self.month % 12) + 1)
 
 
-
-
 def parquet_file_name(month_id: MonthIdentifier) -> str:
     return f'yellow_tripdata_{month_id.year}-{month_id.month:02}.parquet'
 
@@ -56,7 +54,8 @@ def load_parquet_file(month_id: MonthIdentifier) -> pd.DataFrame:
 
 def filter_df_for_correct_time(df: pd.DataFrame, month_id: MonthIdentifier) -> pd.DataFrame:
     time_period = pd.Period(year=month_id.year, month=month_id.month, freq='M')
-    buffer_slight_overlap = pd.Timedelta(1, unit='hour')  # parquet files sometimes include a few entries from the next or previous month
+    buffer_slight_overlap = pd.Timedelta(1,
+                                         unit='hour')  # parquet files sometimes include a few entries from the next or previous month
 
     start_limit = time_period.start_time - buffer_slight_overlap
     end_limit = time_period.end_time + buffer_slight_overlap
