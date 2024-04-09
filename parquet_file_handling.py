@@ -36,11 +36,11 @@ class MonthIdentifier:
     def next_month(self) -> 'MonthIdentifier':
         return MonthIdentifier(self.year + (self.month + 1) // 13, (self.month % 12) + 1)
 
-    def start_time(self) -> pd.Timestamp:
+    def start_timestamp(self) -> pd.Timestamp:
         return pd.Timestamp(year=self.year, month=self.month, day=1, tz=ASSUMED_ORIGIN_TZ)
 
-    def end_time(self) -> pd.Timestamp:
-        return self.start_time().to_period('M').end_time
+    def end_timestamp(self) -> pd.Timestamp:
+        return self.start_timestamp().to_period('M').end_time.tz_localize(ASSUMED_ORIGIN_TZ)
 
 
 def parquet_file_name(month_id: MonthIdentifier) -> str:
@@ -73,14 +73,16 @@ def filter_df_for_correct_time(df: pd.DataFrame, month_id: MonthIdentifier) -> p
     buffer_slight_overlap = pd.Timedelta(1,
                                          unit='hour')  # parquet files sometimes include a few entries from the next or previous month
 
-    start_limit = month_id.start_time() - buffer_slight_overlap
-    end_limit = month_id.end_time() + buffer_slight_overlap
+    start_limit = month_id.start_timestamp() - buffer_slight_overlap
+    end_limit = month_id.end_timestamp() + buffer_slight_overlap
 
     out_of_range_indices = (df[DEFINING_TIME_COLUMN] < start_limit) | (
             df[DEFINING_TIME_COLUMN] >= end_limit)
     if out_of_range_indices.any():
         logging.warning(
             f'Found {out_of_range_indices.sum()} entries with invalid time in {month_id.year}-{month_id.month:02}. They will be removed.')
+        for i, row in df[out_of_range_indices].iterrows():
+            logging.info(f'Invalid time at index {i}: {row[DEFINING_TIME_COLUMN]}')
 
     return df[~out_of_range_indices]
 
@@ -115,14 +117,14 @@ def get_months_in_range_inclusive(start: MonthIdentifier, end: MonthIdentifier) 
     return months
 
 
-def repair_slightly_overlapping_dfs(df_before: pd.DataFrame, df_after: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def repair_slightly_overlapping_dfs(df_before: pd.DataFrame, month_before: MonthIdentifier, df_after: pd.DataFrame,
+                                    month_after: MonthIdentifier) -> Tuple[pd.DataFrame, pd.DataFrame]:
     # slightly overlapping means that the last index of one df is the same as the first index of the next df
     if df_before.empty or df_after.empty:
         return df_before, df_after
 
-
-
-    if df_before.index[-1] != df_after.index[0]:
+    indices_wrong_first_df = df_before.index
+    if df_before.index:
         return df_before, df_after
 
     return pd.concat(dfs)
@@ -131,12 +133,10 @@ def repair_slightly_overlapping_dfs(df_before: pd.DataFrame, df_after: pd.DataFr
 def get_daily_means_in_range(start: MonthIdentifier, end: MonthIdentifier) -> pd.DataFrame:
     months = get_months_in_range_inclusive(start, end)
 
-    daily_means = collections.OrderedDict(
-        [
+    daily_means = [
             (month_id.to_tuple(), get_daily_means_for_month(month_id))
             for month_id in months
-        ]
-    )
+    ]
 
-    daily_means_df = pd.concat(daily_means)
+    daily_means_df = pd.concat([x for _, x in daily_means])
     return daily_means_df
