@@ -2,7 +2,8 @@ import dataclasses
 import pathlib as pl
 import logging
 from typing import List, Tuple
-import collections
+import datetime
+import urllib.request
 
 import pandas as pd
 
@@ -30,9 +31,6 @@ class MonthIdentifier:
     def __le__(self, other: 'MonthIdentifier') -> bool:
         return (self.year, self.month) <= (other.year, other.month)
 
-    def to_tuple(self) -> Tuple[int, int]:
-        return self.year, self.month
-
     def next_month(self) -> 'MonthIdentifier':
         return MonthIdentifier(self.year + (self.month + 1) // 13, (self.month % 12) + 1)
 
@@ -42,16 +40,35 @@ class MonthIdentifier:
     def end_timestamp(self) -> pd.Timestamp:
         return pd.Period(year=self.year, month=self.month, freq='M').end_time.tz_localize(ASSUMED_ORIGIN_TZ)
 
+    def first_day_of_month(self) -> datetime.date:
+        return datetime.date(self.year, self.month, 1)
+
+    def last_day_of_month(self) -> datetime.date:
+        next_month = self.next_month()
+        return datetime.date(next_month.year, next_month.month, 1) - datetime.timedelta(days=1)
+
 
 def parquet_file_name(month_id: MonthIdentifier) -> str:
     return f'yellow_tripdata_{month_id.year}-{month_id.month:02}.parquet'
 
 
-def load_parquet_file(month_id: MonthIdentifier) -> pd.DataFrame:
-    parquet_file = DATA_FOLDER / parquet_file_name(month_id)
+def acquire_parquet_file(month_id: MonthIdentifier) -> pl.Path:
+    url = f'https://d37ci6vzurychx.cloudfront.net/trip-data/{parquet_file_name(month_id)}'
+    target = DATA_FOLDER / parquet_file_name(month_id)
 
-    if not parquet_file.exists():
-        raise FileNotFoundError(f'File {parquet_file} does not exist. Did you download the data?')
+    if target.exists():
+        logging.info(f'File {target} already exists, skipping download')
+        return target
+
+    logging.info(f'Downloading {url} to {target}')
+    urllib.request.urlretrieve(url, filename=target)
+    if not target.exists():
+        raise ValueError(f'Failed to download {url} to {target}')
+    return target
+
+
+def load_parquet_file(month_id: MonthIdentifier) -> pd.DataFrame:
+    parquet_file = acquire_parquet_file(month_id)
 
     df = pd.read_parquet(parquet_file, columns=['tpep_pickup_datetime', 'tpep_dropoff_datetime', 'trip_distance'])
 
@@ -96,7 +113,11 @@ def daily_means_from_df(df: pd.DataFrame) -> pd.DataFrame:
     df['date'] = df['tpep_pickup_datetime'].dt.date
 
     # also collect count to be able to combine dataframes later
-    return df.groupby('date')[['trip_distance', 'trip_length_time']].agg(['mean', 'count'])
+    return df.groupby('date').agg(
+        trip_distance=('trip_distance', 'mean'),
+        trip_length_time=('trip_length_time', 'mean'),
+        count=('trip_distance', 'count')
+    )
 
 
 def get_daily_means_for_month(month_id: MonthIdentifier) -> pd.DataFrame:
@@ -117,26 +138,68 @@ def get_months_in_range_inclusive(start: MonthIdentifier, end: MonthIdentifier) 
     return months
 
 
-def repair_slightly_overlapping_dfs(df_before: pd.DataFrame, month_before: MonthIdentifier, df_after: pd.DataFrame,
-                                    month_after: MonthIdentifier) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    # slightly overlapping means that the last index of one df is the same as the first index of the next df
+def combine_rows_via_weighted_average(row1: pd.Series, row2: pd.Series) -> pd.Series:
+    if row1.name != row2.name:
+        raise ValueError('Rows must have the same index')
+
+    return pd.Series({
+        'trip_distance': row1['trip_distance'] * row1['count'] + row2['trip_distance'] * row2['count'],
+        'trip_length_time': row1['trip_length_time'] * row1['count'] + row2['trip_length_time'] * row2['count'],
+        'count': row1['count'] + row2['count']
+    }) / (row1['count'] + row2['count'])
+
+
+def fix_first_and_last_days_of_consecutive_dfs(df_before: pd.DataFrame, month_before: MonthIdentifier,
+                                               df_after: pd.DataFrame,
+                                               month_after: MonthIdentifier) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    if month_before.next_month() != month_after:
+        raise ValueError('Months must be consecutive')
+
     if df_before.empty or df_after.empty:
         return df_before, df_after
 
-    indices_wrong_first_df = df_before.index
-    if df_before.index:
-        return df_before, df_after
+    potentially_overlapping_date = month_after.first_day_of_month()
+    if potentially_overlapping_date in df_before.index:
+        print("Fixing before", df_before.loc[potentially_overlapping_date])
+        df_after.loc[potentially_overlapping_date] = combine_rows_via_weighted_average(
+            df_before.loc[potentially_overlapping_date], df_after.loc[potentially_overlapping_date])
+        df_before = df_before.drop(potentially_overlapping_date)
 
-    return pd.concat(dfs)
+    potentially_overlapping_date = month_before.last_day_of_month()
+    if potentially_overlapping_date in df_after.index:
+        print("Fixing after", df_after.loc[potentially_overlapping_date])
+        df_before.loc[potentially_overlapping_date] = combine_rows_via_weighted_average(
+            df_before.loc[potentially_overlapping_date], df_after.loc[potentially_overlapping_date])
+        df_after = df_after.drop(potentially_overlapping_date)
+
+    return df_before, df_after
 
 
 def get_daily_means_in_range(start: MonthIdentifier, end: MonthIdentifier) -> pd.DataFrame:
     months = get_months_in_range_inclusive(start, end)
 
-    daily_means = [
-            (month_id.to_tuple(), get_daily_means_for_month(month_id))
-            for month_id in months
+    month_daily_means_tuples = [
+        (month_id, get_daily_means_for_month(month_id))
+        for month_id in months
     ]
 
-    daily_means_df = pd.concat([x for _, x in daily_means])
+    if not month_daily_means_tuples:
+        raise ValueError('No months found in range')
+
+    if len(month_daily_means_tuples) == 1:
+        return month_daily_means_tuples[0][1]
+
+    daily_means = []
+    first_month, first_daily_means = month_daily_means_tuples[0]
+
+    for second_month, second_daily_means in month_daily_means_tuples[1:]:
+        first_daily_means, second_daily_means = fix_first_and_last_days_of_consecutive_dfs(
+            first_daily_means, first_month, second_daily_means, second_month)
+        first_month = second_month
+        daily_means.append(first_daily_means)
+        first_daily_means = second_daily_means
+
+    daily_means.append(second_daily_means)
+
+    daily_means_df = pd.concat(daily_means)
     return daily_means_df
