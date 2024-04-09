@@ -6,7 +6,12 @@ from typing import List, Tuple
 import pandas as pd
 
 DATA_FOLDER = pl.Path(__file__).parent / 'data'
+
+TIME_COLUMNS = ['tpep_pickup_datetime', 'tpep_dropoff_datetime']
 DEFINING_TIME_COLUMN = 'tpep_pickup_datetime'
+
+ASSUMED_ORIGIN_TZ = 'UTC'
+NEW_YORK_TZ = 'US/Eastern'
 
 
 @dataclasses.dataclass
@@ -46,6 +51,11 @@ def load_parquet_file(month_id: MonthIdentifier) -> pd.DataFrame:
     if df.isnull().any().any():
         # haven't found Nan values in the data yet, but I want to know if they appear
         raise ValueError('Found NaN values in the loaded DataFrame')
+
+    for time_column in TIME_COLUMNS:
+        if time_column not in df.columns:
+            raise ValueError(f'Column {time_column} not found in the loaded DataFrame')
+        df[time_column] = df[time_column].dt.tz_localize(ASSUMED_ORIGIN_TZ)
 
     df['trip_length_time'] = df['tpep_dropoff_datetime'] - df['tpep_pickup_datetime']
 
