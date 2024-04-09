@@ -13,7 +13,6 @@ jupyter = "^1.0.0"
 plotly = "^5.20.0"
 pyarrow = "^15.0.2"
 pytest = "^8.1.1"
-tinyflux = "^0.4.1"
 
 
 [build-system]
