@@ -2,6 +2,7 @@ import dataclasses
 import pathlib as pl
 import logging
 from typing import List, Tuple
+import collections
 
 import pandas as pd
 
@@ -35,6 +36,12 @@ class MonthIdentifier:
     def next_month(self) -> 'MonthIdentifier':
         return MonthIdentifier(self.year + (self.month + 1) // 13, (self.month % 12) + 1)
 
+    def start_time(self) -> pd.Timestamp:
+        return pd.Timestamp(year=self.year, month=self.month, day=1, tz=ASSUMED_ORIGIN_TZ)
+
+    def end_time(self) -> pd.Timestamp:
+        return self.start_time().to_period('M').end_time
+
 
 def parquet_file_name(month_id: MonthIdentifier) -> str:
     return f'yellow_tripdata_{month_id.year}-{month_id.month:02}.parquet'
@@ -63,12 +70,11 @@ def load_parquet_file(month_id: MonthIdentifier) -> pd.DataFrame:
 
 
 def filter_df_for_correct_time(df: pd.DataFrame, month_id: MonthIdentifier) -> pd.DataFrame:
-    time_period = pd.Period(year=month_id.year, month=month_id.month, freq='M')
     buffer_slight_overlap = pd.Timedelta(1,
                                          unit='hour')  # parquet files sometimes include a few entries from the next or previous month
 
-    start_limit = time_period.start_time.tz_localize(ASSUMED_ORIGIN_TZ) - buffer_slight_overlap
-    end_limit = time_period.end_time.tz_localize(ASSUMED_ORIGIN_TZ) + buffer_slight_overlap
+    start_limit = month_id.start_time() - buffer_slight_overlap
+    end_limit = month_id.end_time() + buffer_slight_overlap
 
     out_of_range_indices = (df[DEFINING_TIME_COLUMN] < start_limit) | (
             df[DEFINING_TIME_COLUMN] >= end_limit)
@@ -109,13 +115,28 @@ def get_months_in_range_inclusive(start: MonthIdentifier, end: MonthIdentifier) 
     return months
 
 
+def repair_slightly_overlapping_dfs(df_before: pd.DataFrame, df_after: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    # slightly overlapping means that the last index of one df is the same as the first index of the next df
+    if df_before.empty or df_after.empty:
+        return df_before, df_after
+
+
+
+    if df_before.index[-1] != df_after.index[0]:
+        return df_before, df_after
+
+    return pd.concat(dfs)
+
+
 def get_daily_means_in_range(start: MonthIdentifier, end: MonthIdentifier) -> pd.DataFrame:
     months = get_months_in_range_inclusive(start, end)
 
-    daily_means = {
-        month_id.to_tuple(): get_daily_means_for_month(month_id)
-        for month_id in months
-    }
+    daily_means = collections.OrderedDict(
+        [
+            (month_id.to_tuple(), get_daily_means_for_month(month_id))
+            for month_id in months
+        ]
+    )
 
     daily_means_df = pd.concat(daily_means)
     return daily_means_df
