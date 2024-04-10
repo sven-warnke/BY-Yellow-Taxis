@@ -415,7 +415,7 @@ class MonthlyMean(TimeWiseAverager):
 
 
 def plot_metric(df: pd.DataFrame, metric: str) -> go.Figure:
-    fig = px.line(df, x="date", y=metric)
+    fig = px.line(df, x="date", y=metric, markers=True)
     return fig
 
 
@@ -426,6 +426,8 @@ def plot_rolling_means_for_time_and_distance(
     distance_subplot = plot_metric(averaged_df, "trip_distance")
     time_subplot = plot_metric(averaged_df, "trip_length_in_mins")
 
+    # the speed is not part of the problem statement, but it is a simple calculation that can be added
+    # and it is a useful metric for the data to draw conclusions from
     averaged_df["speed_in_mph"] = averaged_df["trip_distance"] / (
         averaged_df["trip_length_in_mins"] / 60
     )
