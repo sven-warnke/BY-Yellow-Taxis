@@ -359,7 +359,7 @@ def get_45day_rolling_mean(daily_means_df: pd.DataFrame) -> pd.DataFrame:
     daily_means_df[["roll_trip_distance", "roll_trip_length_in_mins"]] = (
         daily_means_df.rolling(
             "45D", on="date"
-        )[["trip_distance", "trip_length_in_mins"]].mean()
+        )[["trip_distance", "trip_length_in_mins"]].mean()[["trip_distance", "trip_length_in_mins"]]
     )
     return daily_means_df
 
@@ -377,7 +377,7 @@ def plot_rolling_mean(daily_means_df: pd.DataFrame) -> go.Figure:
 
 def get_monthly_means(daily_means_df: pd.DataFrame) -> pd.DataFrame:
     daily_means_df = _prepare_df_for_grouping_operations(daily_means_df)
-    monthly_means = daily_means_df.groupby(pd.Grouper(key="date", freq="M"))[
+    monthly_means = daily_means_df.groupby(pd.Grouper(key="date", freq="ME"))[
         ["trip_distance", "trip_length_in_mins"]
     ].mean()
     return monthly_means
