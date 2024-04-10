@@ -225,7 +225,8 @@ def load_filtered_parquet_file(month_id: MonthIdentifier) -> pd.DataFrame:
 
 
 def daily_means_from_df(df: pd.DataFrame) -> pd.DataFrame:
-    df["date"] = df["tpep_pickup_datetime"].dt.date
+    # here we use the timezone of New York, because the data is from New York
+    df["date"] = df["tpep_pickup_datetime"].dt.tz_convert(NEW_YORK_TZ).dt.date
 
     # also collect count to be able to combine dataframes later
     return df.groupby("date").agg(
@@ -276,6 +277,13 @@ def fix_first_and_last_days_of_consecutive_dfs(
     df_after: pd.DataFrame,
     month_after: MonthIdentifier,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    The assignment of the first and last days of a month to a month is not always exactly correct within the parquet
+    files. I.e. the file for april might contain a few samples from 1st of may or 31st of march. In order to not have to
+    open multiple large parquet files at once, this function fixes the overlap between two months by combining the
+    data of the overlapping days via a weighted average.
+    """
+
     if month_before.next_month() != month_after:
         raise ValueError("Months must be consecutive")
 
