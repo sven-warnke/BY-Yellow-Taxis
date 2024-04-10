@@ -360,9 +360,10 @@ def get_daily_means_in_range(
 class TimeWiseAverager(abc.ABC):
     """
     As per the definition in the coding challenge, there are already 2 ways mentioned of calculating the mean of the
-    trip distance and trip length in minutes over different time windows. This class is an abstract class that defines 
+    trip distance and trip length in minutes over different time windows. This class is an abstract class that defines
     the interface for these sort of calculations in general.
     """
+
     @abc.abstractmethod
     def calculate_mean(self, daily_means_df: pd.DataFrame) -> pd.DataFrame:
         pass
