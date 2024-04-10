@@ -3,6 +3,7 @@ import datetime
 import logging
 import pathlib as pl
 import urllib.request
+import urllib.error
 from typing import List, Tuple, Dict
 import abc
 
@@ -73,10 +74,24 @@ def parquet_file_name(month_id: MonthIdentifier) -> str:
     return f"yellow_tripdata_{month_id.year}-{month_id.month:02}.parquet"
 
 
-def acquire_parquet_file(month_id: MonthIdentifier) -> pl.Path:
-    url = (
+def is_url_valid(url: str) -> bool:
+    try:
+        if urllib.request.urlopen(url).code == 200:
+            return True
+        else:
+            return False
+    except urllib.error.HTTPError:
+        return False
+
+
+def expected_parquet_file_url(month_id: MonthIdentifier) -> str:
+    return (
         f"https://d37ci6vzurychx.cloudfront.net/trip-data/{parquet_file_name(month_id)}"
     )
+
+
+def acquire_parquet_file(month_id: MonthIdentifier) -> pl.Path:
+    url = expected_parquet_file_url(month_id)
     target = DATA_FOLDER / parquet_file_name(month_id)
     target.parent.mkdir(parents=True, exist_ok=True)
 
@@ -224,7 +239,9 @@ def remove_outliers(df: pd.DataFrame) -> pd.DataFrame:
 def load_filtered_parquet_file(month_id: MonthIdentifier) -> pd.DataFrame:
     df = load_parquet_file(month_id)
     df = filter_df_for_correct_time(df, month_id)
-    df = remove_outliers(df)  # the potential effect of drastic outliers on the data is high, therefore they are removed
+    df = remove_outliers(
+        df
+    )  # the potential effect of drastic outliers on the data is high, therefore they are removed
     return df
 
 
@@ -346,6 +363,10 @@ def get_daily_means_in_range(
     start: MonthIdentifier, end: MonthIdentifier
 ) -> pd.DataFrame:
     months = get_months_in_range_inclusive(start, end)
+    
+    for m in months:
+        if not is_url_valid(expected_parquet_file_url(m)):
+            raise ValueError(f"No data available for {m} is not valid. Consider limiting the range.")
 
     month_daily_means_tuples = [
         (month_id, get_daily_means_for_month(month_id)) for month_id in months
