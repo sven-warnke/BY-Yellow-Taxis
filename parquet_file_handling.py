@@ -4,11 +4,13 @@ import logging
 import pathlib as pl
 import urllib.request
 from typing import List, Tuple, Dict
+import abc
 
 import pandas as pd
 import pyarrow.parquet
 from plotly import express as px
 from plotly import graph_objects as go
+from plotly import subplots
 
 DATA_FOLDER = pl.Path(__file__).parent / "data"
 
@@ -343,78 +345,75 @@ def get_daily_means_in_range(
     return daily_means_df
 
 
-def _prepare_df_for_grouping_operations(daily_means_df: pd.DataFrame) -> pd.DataFrame:
-    if daily_means_df.index.name != "date":
-        raise ValueError("Index must be date")
-    daily_means_df = daily_means_df.sort_index().reset_index()
-    daily_means_df["date"] = pd.to_datetime(daily_means_df["date"])
-    daily_means_df["trip_length_in_mins"] = (
-        daily_means_df["trip_length_time"].dt.total_seconds() / 60
-    )
-    return daily_means_df
+class TimeWiseMeanCalculator:
+    @abc.abstractmethod
+    def calculate_mean(self, daily_means_df: pd.DataFrame) -> pd.DataFrame:
+        pass
+
+    @staticmethod
+    def _prepare_df_for_grouping_operations(
+        daily_means_df: pd.DataFrame,
+    ) -> pd.DataFrame:
+        if daily_means_df.index.name != "date":
+            raise ValueError("Index must be date")
+        daily_means_df = daily_means_df.sort_index().reset_index()
+        daily_means_df["date"] = pd.to_datetime(daily_means_df["date"])
+        daily_means_df["trip_length_in_mins"] = (
+            daily_means_df["trip_length_time"].dt.total_seconds() / 60
+        )
+        return daily_means_df
 
 
-def get_45day_rolling_mean(daily_means_df: pd.DataFrame) -> pd.DataFrame:
-    daily_means_df = _prepare_df_for_grouping_operations(daily_means_df)
-    daily_means_df[["roll_trip_distance", "roll_trip_length_in_mins"]] = (
-        daily_means_df.rolling(
-            "45D", on="date"
-        )[
+class RollingMeanCalculator(TimeWiseMeanCalculator):
+    def __init__(self, window: str = "45D"):
+        self.window = window
+
+    def calculate_mean(self, daily_means_df: pd.DataFrame) -> pd.DataFrame:
+        daily_means_df = TimeWiseMeanCalculator._prepare_df_for_grouping_operations(
+            daily_means_df
+        )
+        return daily_means_df.rolling(self.window, on="date")[
             ["trip_distance", "trip_length_in_mins"]
-        ].mean()[["trip_distance", "trip_length_in_mins"]]
-    )
-    return daily_means_df
+        ].mean()
 
 
-def plot_rolling_mean(daily_means_df: pd.DataFrame, y: str, title: str) -> go.Figure:
-    daily_means_df = get_45day_rolling_mean(daily_means_df)
-    fig = px.line(
-        daily_means_df,
-        x="date",
-        y=y,
-        title=title,
-    )
+class MonthlyMeanCalculator(TimeWiseMeanCalculator):
+    def calculate_mean(self, daily_means_df: pd.DataFrame) -> pd.DataFrame:
+        daily_means_df = TimeWiseMeanCalculator._prepare_df_for_grouping_operations(
+            daily_means_df
+        )
+        monthly_means = daily_means_df.groupby(pd.Grouper(key="date", freq="ME"))[
+            ["trip_distance", "trip_length_in_mins"]
+        ].mean()
+        return monthly_means
+
+
+def plot_metric(df: pd.DataFrame, metric: str) -> go.Figure:
+    fig = px.line(df, x="date", y=metric)
     return fig
 
 
-def plot_rolling_means_for_time_and_distance(daily_means_df: pd.DataFrame) -> go.Figure:
-    fig = go.Figure()
-    fig.add_trace(
-        go.Scatter(
-            x=daily_means_df["date"],
-            y=daily_means_df["roll_trip_distance"],
-            mode="lines+markers",
-            name="Rolling mean trip distance",
-        )
+def plot_rolling_means_for_time_and_distance(
+    daily_means_df: pd.DataFrame, time_wise_averager: TimeWiseMeanCalculator
+) -> go.Figure:
+    averaged_df = time_wise_averager.calculate_mean(daily_means_df)
+    distance_subplot = plot_metric(averaged_df, "trip_distance")
+    time_subplot = plot_metric(averaged_df, "trip_length_in_mins")
+
+    fig = subplots.make_subplots(
+        rows=2,
+        cols=1,
+        shared_xaxes=True,
+        subplot_titles=("Trip distance", "Trip length in minutes"),
     )
     fig.add_trace(
-        go.Scatter(
-            x=daily_means_df["date"],
-            y=daily_means_df["roll_trip_length_in_mins"],
-            mode="lines+markers",
-            name="Rolling mean trip length in mins",
-        )
+        distance_subplot.data[0],
+        row=1,
+        col=1,
     )
-    return fig
-
-
-def get_monthly_means(daily_means_df: pd.DataFrame) -> pd.DataFrame:
-    daily_means_df = _prepare_df_for_grouping_operations(daily_means_df)
-    monthly_means = daily_means_df.groupby(pd.Grouper(key="date", freq="ME"))[
-        ["trip_distance", "trip_length_in_mins"]
-    ].mean()
-    return monthly_means
-
-
-def plot_monthly_means(daily_means_df: pd.DataFrame) -> go.Figure:
-    monthly_means = get_monthly_means(daily_means_df)
-    fig = go.Figure()
     fig.add_trace(
-        go.Scatter(
-            x=monthly_means.index,
-            y=monthly_means["trip_distance"],
-            mode="lines+markers",
-            name="Monthly mean trip distance",
-        )
+        time_subplot.data[0],
+        row=2,
+        col=1,
     )
     return fig
