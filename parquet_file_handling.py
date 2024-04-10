@@ -357,7 +357,12 @@ def get_daily_means_in_range(
     return daily_means_df
 
 
-class TimeWiseMeanCalculator:
+class TimeWiseAverager(abc.ABC):
+    """
+    As per the definition in the coding challenge, there are already 2 ways mentioned of calculating the mean of the
+    trip distance and trip length in minutes over different time windows. This class is an abstract class that defines 
+    the interface for these sort of calculations in general.
+    """
     @abc.abstractmethod
     def calculate_mean(self, daily_means_df: pd.DataFrame) -> pd.DataFrame:
         pass
@@ -376,12 +381,12 @@ class TimeWiseMeanCalculator:
         return daily_means_df
 
 
-class RollingMeanCalculator(TimeWiseMeanCalculator):
+class RollingMean(TimeWiseAverager):
     def __init__(self, window: str = "45D"):
         self.window = window
 
     def calculate_mean(self, daily_means_df: pd.DataFrame) -> pd.DataFrame:
-        daily_means_df = TimeWiseMeanCalculator._prepare_df_for_grouping_operations(
+        daily_means_df = TimeWiseAverager._prepare_df_for_grouping_operations(
             daily_means_df
         )
         return daily_means_df.rolling(self.window, on="date")[
@@ -389,9 +394,9 @@ class RollingMeanCalculator(TimeWiseMeanCalculator):
         ].mean()
 
 
-class MonthlyMeanCalculator(TimeWiseMeanCalculator):
+class MonthlyMean(TimeWiseAverager):
     def calculate_mean(self, daily_means_df: pd.DataFrame) -> pd.DataFrame:
-        daily_means_df = TimeWiseMeanCalculator._prepare_df_for_grouping_operations(
+        daily_means_df = TimeWiseAverager._prepare_df_for_grouping_operations(
             daily_means_df
         )
         monthly_means = (
@@ -410,7 +415,7 @@ def plot_metric(df: pd.DataFrame, metric: str) -> go.Figure:
 
 
 def plot_rolling_means_for_time_and_distance(
-    daily_means_df: pd.DataFrame, time_wise_averager: TimeWiseMeanCalculator
+    daily_means_df: pd.DataFrame, time_wise_averager: TimeWiseAverager
 ) -> go.Figure:
     averaged_df = time_wise_averager.calculate_mean(daily_means_df)
     distance_subplot = plot_metric(averaged_df, "trip_distance")
