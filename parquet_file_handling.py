@@ -24,6 +24,10 @@ logging.basicConfig(level=logging.INFO)
 
 @dataclasses.dataclass
 class MonthIdentifier:
+    """
+    Parquet files are named after the month and year they contain data for. This class is used to identify a month.
+    """
+
     year: int
     month: int
 
@@ -123,6 +127,8 @@ class ColumnMapping:
 
 def get_column_mapping(parquet_file: pl.Path) -> ColumnMapping:
     column_names = pyarrow.parquet.ParquetFile(parquet_file).schema.names
+
+    # these mappings were recognized so far in the data. If a new schema is encountered, it must be added here.
     possible_schemas = [
         ColumnMapping("tpep_pickup_datetime", "tpep_dropoff_datetime", "trip_distance"),
         ColumnMapping("Trip_Pickup_DateTime", "Trip_Dropoff_DateTime", "Trip_Distance"),
@@ -276,7 +282,7 @@ def fix_first_and_last_days_of_consecutive_dfs(
 
     potentially_overlapping_date = month_after.first_day_of_month()
     if potentially_overlapping_date in df_before.index:
-        LOGGER.info("Fixing before", df_before.loc[potentially_overlapping_date])
+        LOGGER.info(f"Fixing before {potentially_overlapping_date}")
         df_after.loc[potentially_overlapping_date] = combine_rows_via_weighted_average(
             df_before.loc[potentially_overlapping_date],
             df_after.loc[potentially_overlapping_date],
@@ -285,7 +291,7 @@ def fix_first_and_last_days_of_consecutive_dfs(
 
     potentially_overlapping_date = month_before.last_day_of_month()
     if potentially_overlapping_date in df_after.index:
-        LOGGER.info("Fixing after", df_after.loc[potentially_overlapping_date])
+        LOGGER.info(f"Fixing after {potentially_overlapping_date}")
         df_before.loc[potentially_overlapping_date] = combine_rows_via_weighted_average(
             df_before.loc[potentially_overlapping_date],
             df_after.loc[potentially_overlapping_date],
