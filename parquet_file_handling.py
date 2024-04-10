@@ -1,9 +1,9 @@
 import dataclasses
-import pathlib as pl
-import logging
-from typing import List, Tuple, Dict
 import datetime
+import logging
+import pathlib as pl
 import urllib.request
+from typing import List, Tuple, Dict
 
 import pandas as pd
 import pyarrow.parquet
@@ -229,7 +229,8 @@ def fix_first_and_last_days_of_consecutive_dfs(df_before: pd.DataFrame, month_be
     return df_before, df_after
 
 
-def fix_first_and_last_days_in_list_of_dfs(month_daily_means_tuples: List[Tuple[MonthIdentifier, pd.DataFrame]]) -> List[pd.DataFrame]:
+def fix_first_and_last_days_in_list_of_dfs(month_daily_means_tuples: List[Tuple[MonthIdentifier, pd.DataFrame]]) -> \
+List[pd.DataFrame]:
     if len(month_daily_means_tuples) == 1:
         return [month_daily_means_tuples[0][1]]
 
@@ -263,3 +264,12 @@ def get_daily_means_in_range(start: MonthIdentifier, end: MonthIdentifier) -> pd
     return daily_means_df
 
 
+def get_45day_rolling_mean(daily_means_df: pd.DataFrame) -> pd.DataFrame:
+    if daily_means_df.index.name != 'date':
+        raise ValueError('Index must be date')
+    daily_means_df = daily_means_df.sort_index().reset_index()
+    daily_means_df['date'] = pd.to_datetime(daily_means_df['date'])
+    daily_means_df['trip_length_in_mins'] = daily_means_df['trip_length_time'].dt.total_seconds() / 60
+    daily_means_df[['roll_trip_distance', 'roll_trip_length_in_mins']] = daily_means_df.rolling('45D', on='date')[
+        'trip_distance', 'trip_length_in_mins'].mean()
+    return daily_means_df
