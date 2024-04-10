@@ -183,9 +183,23 @@ def filter_df_for_correct_time(
     return df[~out_of_range_indices]
 
 
+def remove_outliers(df: pd.DataFrame) -> pd.DataFrame:
+    limits = {
+        "trip_distance": (0, 100),
+        "trip_length_time": (pd.Timedelta(0), pd.Timedelta("24h")),
+    }
+
+    for column, (lower, upper) in limits.items():
+        df = df[(df[column] >= lower) & (df[column] <= upper)]
+
+    return df
+
+
 def load_filtered_parquet_file(month_id: MonthIdentifier) -> pd.DataFrame:
     df = load_parquet_file(month_id)
-    return filter_df_for_correct_time(df, month_id)
+    df = filter_df_for_correct_time(df, month_id)
+    df = remove_outliers(df)
+    return df
 
 
 def daily_means_from_df(df: pd.DataFrame) -> pd.DataFrame:
