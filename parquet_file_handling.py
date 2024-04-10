@@ -363,10 +363,12 @@ def get_daily_means_in_range(
     start: MonthIdentifier, end: MonthIdentifier
 ) -> pd.DataFrame:
     months = get_months_in_range_inclusive(start, end)
-    
+
     for m in months:
         if not is_url_valid(expected_parquet_file_url(m)):
-            raise ValueError(f"No data available for {m} is not valid. Consider limiting the range.")
+            raise ValueError(
+                f"No data available for {m} is not valid. Consider limiting the range."
+            )
 
     month_daily_means_tuples = [
         (month_id, get_daily_means_for_month(month_id)) for month_id in months
