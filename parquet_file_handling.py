@@ -86,6 +86,11 @@ def acquire_parquet_file(month_id: MonthIdentifier) -> pl.Path:
 
 @dataclasses.dataclass
 class ColumnMapping:
+    """
+    Class to map column names from different schemas to a common schema. The class is used to load parquet files with different schemas.
+    This is necessary because the column names in the parquet files can vary between months.
+    """
+
     pickup_time: str
     dropoff_time: str
     distance: str
@@ -190,14 +195,15 @@ def remove_outliers(df: pd.DataFrame) -> pd.DataFrame:
     # currently only removing outliers in trip distance and trip length time based on rough estimates of suitable limits
     limits = {
         "trip_distance": (0, 100),
-        "trip_length_time": (pd.Timedelta(0), pd.Timedelta("24h")),
+        "trip_length_time": (pd.Timedelta("10s"), pd.Timedelta("24h")),
     }
 
     for column, (lower, upper) in limits.items():
         outlier_indices = (df[column] < lower) | (df[column] > upper)
-        LOGGER.info(
-            f"Found {outlier_indices.sum()} outliers in {column}. They will be removed."
-        )
+        if outlier_indices.any():
+            LOGGER.info(
+                f"Found {outlier_indices.sum()} outliers in {column}. They will be removed."
+            )
         df = df[~outlier_indices]
 
     return df
