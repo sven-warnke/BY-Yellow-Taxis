@@ -394,9 +394,13 @@ class MonthlyMeanCalculator(TimeWiseMeanCalculator):
         daily_means_df = TimeWiseMeanCalculator._prepare_df_for_grouping_operations(
             daily_means_df
         )
-        monthly_means = daily_means_df.groupby(
-            pd.Grouper(key="date", freq="ME")
-        )[["trip_distance", "trip_length_in_mins"]].mean().reset_index()
+        monthly_means = (
+            daily_means_df.groupby(pd.Grouper(key="date", freq="ME"))[
+                ["trip_distance", "trip_length_in_mins"]
+            ]
+            .mean()
+            .reset_index()
+        )
         return monthly_means
 
 
@@ -411,16 +415,22 @@ def plot_rolling_means_for_time_and_distance(
     averaged_df = time_wise_averager.calculate_mean(daily_means_df)
     distance_subplot = plot_metric(averaged_df, "trip_distance")
     time_subplot = plot_metric(averaged_df, "trip_length_in_mins")
-    
-    averaged_df["speed_in_mph"] = averaged_df["trip_distance"] / (averaged_df["trip_length_in_mins"] / 60)
-    
+
+    averaged_df["speed_in_mph"] = averaged_df["trip_distance"] / (
+        averaged_df["trip_length_in_mins"] / 60
+    )
+
     speed_subplot = plot_metric(averaged_df, "speed_in_mph")
 
     fig = subplots.make_subplots(
         rows=3,
         cols=1,
         shared_xaxes=True,
-        subplot_titles=("Trip distance in miles", "Trip length in minutes", "Speed in mph"),
+        subplot_titles=(
+            "Trip distance in miles",
+            "Trip length in minutes",
+            "Speed in mph",
+        ),
     )
     fig.add_trace(
         distance_subplot.data[0],
@@ -437,5 +447,5 @@ def plot_rolling_means_for_time_and_distance(
         row=3,
         col=1,
     )
-    
+
     return fig
