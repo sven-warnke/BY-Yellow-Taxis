@@ -7,6 +7,8 @@ from typing import List, Tuple, Dict
 
 import pandas as pd
 import pyarrow.parquet
+from plotly import express as px
+from plotly import graph_objects as go
 
 DATA_FOLDER = pl.Path(__file__).parent / "data"
 
@@ -328,9 +330,34 @@ def get_45day_rolling_mean(daily_means_df: pd.DataFrame) -> pd.DataFrame:
     return daily_means_df
 
 
+def plot_rolling_mean(daily_means_df: pd.DataFrame) -> go.Figure:
+    daily_means_df = get_45day_rolling_mean(daily_means_df)
+    fig = px.line(
+        daily_means_df,
+        x="date",
+        y="roll_trip_distance",
+        title="Rolling mean of trip distance",
+    )
+    return fig
+
+
 def get_monthly_means(daily_means_df: pd.DataFrame) -> pd.DataFrame:
     daily_means_df = _prepare_df_for_grouping_operations(daily_means_df)
     monthly_means = daily_means_df.groupby(pd.Grouper(key="date", freq="M"))[
         ["trip_distance", "trip_length_in_mins"]
     ].mean()
     return monthly_means
+
+
+def plot_monthly_means(daily_means_df: pd.DataFrame) -> go.Figure:
+    monthly_means = get_monthly_means(daily_means_df)
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=monthly_means.index,
+            y=monthly_means["trip_distance"],
+            mode="lines+markers",
+            name="Monthly mean trip distance",
+        )
+    )
+    return fig
