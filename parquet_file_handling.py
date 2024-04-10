@@ -364,15 +364,38 @@ def get_45day_rolling_mean(daily_means_df: pd.DataFrame) -> pd.DataFrame:
     return daily_means_df
 
 
-def plot_rolling_mean(daily_means_df: pd.DataFrame) -> go.Figure:
+def plot_rolling_mean(daily_means_df: pd.DataFrame, y: str, title: str) -> go.Figure:
     daily_means_df = get_45day_rolling_mean(daily_means_df)
     fig = px.line(
         daily_means_df,
         x="date",
-        y="roll_trip_distance",
-        title="Rolling mean of trip distance",
+        y=y,
+        title=title,
     )
     return fig
+
+
+def plot_rolling_means_for_time_and_distance(daily_means_df: pd.DataFrame) -> go.Figure:
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=daily_means_df["date"],
+            y=daily_means_df["roll_trip_distance"],
+            mode="lines+markers",
+            name="Rolling mean trip distance",
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=daily_means_df["date"],
+            y=daily_means_df["roll_trip_length_in_mins"],
+            mode="lines+markers",
+            name="Rolling mean trip length in mins",
+        )
+    )
+    return fig
+    
+    
 
 
 def get_monthly_means(daily_means_df: pd.DataFrame) -> pd.DataFrame:
