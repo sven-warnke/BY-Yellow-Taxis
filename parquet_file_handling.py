@@ -146,7 +146,7 @@ def get_column_mapping(parquet_file: pl.Path) -> ColumnMapping:
     )
 
 
-def read_parquet_file_with_different_schema(parquet_file: pl.Path) -> pd.DataFrame:
+def read_parquet_file_with_unknown_schema(parquet_file: pl.Path) -> pd.DataFrame:
     columns_mapping = get_column_mapping(parquet_file)
 
     df = pd.read_parquet(parquet_file, columns=columns_mapping.column_names())
@@ -158,7 +158,7 @@ def read_parquet_file_with_different_schema(parquet_file: pl.Path) -> pd.DataFra
 def load_parquet_file(month_id: MonthIdentifier) -> pd.DataFrame:
     parquet_file = acquire_parquet_file(month_id)
 
-    df = read_parquet_file_with_different_schema(parquet_file)
+    df = read_parquet_file_with_unknown_schema(parquet_file)
 
     if df.isnull().any().any():
         # haven't found Nan values in the data yet, but I want to know if they appear
@@ -168,7 +168,7 @@ def load_parquet_file(month_id: MonthIdentifier) -> pd.DataFrame:
         if time_column not in df.columns:
             raise ValueError(f"Column {time_column} not found in the loaded DataFrame")
         df[time_column] = pd.to_datetime(df[time_column]).dt.tz_localize(
-            ASSUMED_ORIGIN_TZ
+            ASSUMED_ORIGIN_TZ  # sometimes times get not correctly recognized as times. I assume that all times are in UTC
         )
 
     df["trip_length_time"] = df["tpep_dropoff_datetime"] - df["tpep_pickup_datetime"]
@@ -284,7 +284,7 @@ def fix_first_and_last_days_of_consecutive_dfs(
 
     potentially_overlapping_date = month_after.first_day_of_month()
     if potentially_overlapping_date in df_before.index:
-        LOGGER.info(f"Fixing before {potentially_overlapping_date}")
+        LOGGER.info(f"Fixing {potentially_overlapping_date} that landed in both {month_before} and {month_after}.")
         df_after.loc[potentially_overlapping_date] = combine_rows_via_weighted_average(
             df_before.loc[potentially_overlapping_date],
             df_after.loc[potentially_overlapping_date],
@@ -293,7 +293,7 @@ def fix_first_and_last_days_of_consecutive_dfs(
 
     potentially_overlapping_date = month_before.last_day_of_month()
     if potentially_overlapping_date in df_after.index:
-        LOGGER.info(f"Fixing after {potentially_overlapping_date}")
+        LOGGER.info(f"Fixing {potentially_overlapping_date} that landed in both {month_before} and {month_after}.")
         df_before.loc[potentially_overlapping_date] = combine_rows_via_weighted_average(
             df_before.loc[potentially_overlapping_date],
             df_after.loc[potentially_overlapping_date],
@@ -382,7 +382,7 @@ class MonthlyMeanCalculator(TimeWiseMeanCalculator):
         daily_means_df = TimeWiseMeanCalculator._prepare_df_for_grouping_operations(
             daily_means_df
         )
-        monthly_means = daily_means_df.groupby(pd.Grouper(key="date", freq="ME"))[
+        monthly_means = daily_means_df.groupby(pd.Grouper(key="date", freq="ME"), as_index=False)[
             ["trip_distance", "trip_length_in_mins"]
         ].mean()
         return monthly_means
