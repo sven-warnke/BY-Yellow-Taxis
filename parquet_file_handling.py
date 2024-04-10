@@ -229,6 +229,24 @@ def fix_first_and_last_days_of_consecutive_dfs(df_before: pd.DataFrame, month_be
     return df_before, df_after
 
 
+def fix_first_and_last_days_in_list_of_dfs(month_daily_means_tuples: List[Tuple[MonthIdentifier, pd.DataFrame]]) -> List[pd.DataFrame]:
+    if len(month_daily_means_tuples) == 1:
+        return [month_daily_means_tuples[0][1]]
+
+    daily_means = []
+    first_month, first_daily_means = month_daily_means_tuples[0]
+
+    for second_month, second_daily_means in month_daily_means_tuples[1:]:
+        first_daily_means, second_daily_means = fix_first_and_last_days_of_consecutive_dfs(
+            first_daily_means, first_month, second_daily_means, second_month)
+        daily_means.append(first_daily_means)
+        first_month = second_month
+        first_daily_means = second_daily_means
+
+    daily_means.append(second_daily_means)
+    return daily_means
+
+
 def get_daily_means_in_range(start: MonthIdentifier, end: MonthIdentifier) -> pd.DataFrame:
     months = get_months_in_range_inclusive(start, end)
 
@@ -240,20 +258,8 @@ def get_daily_means_in_range(start: MonthIdentifier, end: MonthIdentifier) -> pd
     if not month_daily_means_tuples:
         raise ValueError('No months found in range')
 
-    if len(month_daily_means_tuples) == 1:
-        return month_daily_means_tuples[0][1]
-
-    daily_means = []
-    first_month, first_daily_means = month_daily_means_tuples[0]
-
-    for second_month, second_daily_means in month_daily_means_tuples[1:]:
-        first_daily_means, second_daily_means = fix_first_and_last_days_of_consecutive_dfs(
-            first_daily_means, first_month, second_daily_means, second_month)
-        first_month = second_month
-        daily_means.append(first_daily_means)
-        first_daily_means = second_daily_means
-
-    daily_means.append(second_daily_means)
-
-    daily_means_df = pd.concat(daily_means)
+    daily_means_df_list = fix_first_and_last_days_in_list_of_dfs(month_daily_means_tuples)
+    daily_means_df = pd.concat(daily_means_df_list)
     return daily_means_df
+
+
