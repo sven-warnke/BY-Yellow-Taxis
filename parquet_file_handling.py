@@ -284,7 +284,9 @@ def fix_first_and_last_days_of_consecutive_dfs(
 
     potentially_overlapping_date = month_after.first_day_of_month()
     if potentially_overlapping_date in df_before.index:
-        LOGGER.info(f"Fixing {potentially_overlapping_date} that landed in both {month_before} and {month_after}.")
+        LOGGER.info(
+            f"Fixing {potentially_overlapping_date} that landed in both {month_before} and {month_after}."
+        )
         df_after.loc[potentially_overlapping_date] = combine_rows_via_weighted_average(
             df_before.loc[potentially_overlapping_date],
             df_after.loc[potentially_overlapping_date],
@@ -293,7 +295,9 @@ def fix_first_and_last_days_of_consecutive_dfs(
 
     potentially_overlapping_date = month_before.last_day_of_month()
     if potentially_overlapping_date in df_after.index:
-        LOGGER.info(f"Fixing {potentially_overlapping_date} that landed in both {month_before} and {month_after}.")
+        LOGGER.info(
+            f"Fixing {potentially_overlapping_date} that landed in both {month_before} and {month_after}."
+        )
         df_before.loc[potentially_overlapping_date] = combine_rows_via_weighted_average(
             df_before.loc[potentially_overlapping_date],
             df_after.loc[potentially_overlapping_date],
@@ -382,9 +386,9 @@ class MonthlyMeanCalculator(TimeWiseMeanCalculator):
         daily_means_df = TimeWiseMeanCalculator._prepare_df_for_grouping_operations(
             daily_means_df
         )
-        monthly_means = daily_means_df.groupby(pd.Grouper(key="date", freq="ME"), as_index=False)[
-            ["trip_distance", "trip_length_in_mins"]
-        ].mean()
+        monthly_means = daily_means_df.groupby(
+            pd.Grouper(key="date", freq="ME"), as_index=False
+        )[["trip_distance", "trip_length_in_mins"]].mean()
         return monthly_means
 
 
