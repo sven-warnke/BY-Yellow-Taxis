@@ -359,7 +359,9 @@ def get_45day_rolling_mean(daily_means_df: pd.DataFrame) -> pd.DataFrame:
     daily_means_df[["roll_trip_distance", "roll_trip_length_in_mins"]] = (
         daily_means_df.rolling(
             "45D", on="date"
-        )[["trip_distance", "trip_length_in_mins"]].mean()[["trip_distance", "trip_length_in_mins"]]
+        )[
+            ["trip_distance", "trip_length_in_mins"]
+        ].mean()[["trip_distance", "trip_length_in_mins"]]
     )
     return daily_means_df
 
@@ -394,8 +396,6 @@ def plot_rolling_means_for_time_and_distance(daily_means_df: pd.DataFrame) -> go
         )
     )
     return fig
-    
-    
 
 
 def get_monthly_means(daily_means_df: pd.DataFrame) -> pd.DataFrame:
