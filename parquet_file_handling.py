@@ -27,7 +27,8 @@ logging.basicConfig(level=logging.INFO)
 @dataclasses.dataclass
 class MonthIdentifier:
     """
-    Parquet files are named after the month and year they contain data for. This class is used to identify a month.
+    Parquet files are named after the month and year they contain data for. This class is used to identify a month and
+    its corresponding parquet file. It also contains utility functions for handling monthly parquet files.
     """
 
     year: int
@@ -200,7 +201,10 @@ def filter_df_for_correct_time(
 
 
 def remove_outliers(df: pd.DataFrame) -> pd.DataFrame:
-    # currently only removing outliers in trip distance and trip length time based on rough estimates of suitable limits
+    """
+    Remove outliers from the DataFrame. This function is very simple and only removes outliers based on a rough estimate.
+    It could be improved by using a more sophisticated outlier detection algorithm.
+    """
     limits = {
         "trip_distance": (0, 100),
         "trip_length_time": (pd.Timedelta("10s"), pd.Timedelta("24h")),
@@ -220,7 +224,7 @@ def remove_outliers(df: pd.DataFrame) -> pd.DataFrame:
 def load_filtered_parquet_file(month_id: MonthIdentifier) -> pd.DataFrame:
     df = load_parquet_file(month_id)
     df = filter_df_for_correct_time(df, month_id)
-    df = remove_outliers(df)
+    df = remove_outliers(df)  # the potential effect of drastic outliers on the data is high, therefore they are removed
     return df
 
 
