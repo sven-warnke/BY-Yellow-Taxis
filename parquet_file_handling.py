@@ -56,6 +56,7 @@ def parquet_file_name(month_id: MonthIdentifier) -> str:
 def acquire_parquet_file(month_id: MonthIdentifier) -> pl.Path:
     url = f'https://d37ci6vzurychx.cloudfront.net/trip-data/{parquet_file_name(month_id)}'
     target = DATA_FOLDER / parquet_file_name(month_id)
+    target.parent.mkdir(parents=True, exist_ok=True)
 
     if target.exists():
         logging.info(f'File {target} already exists, skipping download')
