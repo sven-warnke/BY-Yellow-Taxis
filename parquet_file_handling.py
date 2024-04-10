@@ -18,6 +18,9 @@ DEFINING_TIME_COLUMN = "tpep_pickup_datetime"
 ASSUMED_ORIGIN_TZ = "UTC"
 NEW_YORK_TZ = "US/Eastern"
 
+LOGGER = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
 
 @dataclasses.dataclass
 class MonthIdentifier:
@@ -71,10 +74,10 @@ def acquire_parquet_file(month_id: MonthIdentifier) -> pl.Path:
     target.parent.mkdir(parents=True, exist_ok=True)
 
     if target.exists():
-        logging.info(f"File {target} already exists, skipping download")
+        LOGGER.info(f"File {target} already exists, skipping download")
         return target
 
-    logging.info(f"Downloading {url} to {target}")
+    LOGGER.info(f"Downloading {url} to {target}")
     urllib.request.urlretrieve(url, filename=target)
     if not target.exists():
         raise ValueError(f"Failed to download {url} to {target}")
@@ -174,23 +177,28 @@ def filter_df_for_correct_time(
         df[DEFINING_TIME_COLUMN] >= end_limit
     )
     if out_of_range_indices.any():
-        logging.warning(
+        LOGGER.warning(
             f"Found {out_of_range_indices.sum()} entries with invalid time in {month_id.year}-{month_id.month:02}. They will be removed."
         )
         for i, row in df[out_of_range_indices].iterrows():
-            logging.info(f"Invalid time at index {i}: {row[DEFINING_TIME_COLUMN]}")
+            LOGGER.info(f"Invalid time at index {i}: {row[DEFINING_TIME_COLUMN]}")
 
     return df[~out_of_range_indices]
 
 
 def remove_outliers(df: pd.DataFrame) -> pd.DataFrame:
+    # currently only removing outliers in trip distance and trip length time based on rough estimates of suitable limits
     limits = {
         "trip_distance": (0, 100),
         "trip_length_time": (pd.Timedelta(0), pd.Timedelta("24h")),
     }
 
     for column, (lower, upper) in limits.items():
-        df = df[(df[column] >= lower) & (df[column] <= upper)]
+        outlier_indices = (df[column] < lower) | (df[column] > upper)
+        LOGGER.info(
+            f"Found {outlier_indices.sum()} outliers in {column}. They will be removed."
+        )
+        df = df[~outlier_indices]
 
     return df
 
@@ -262,7 +270,7 @@ def fix_first_and_last_days_of_consecutive_dfs(
 
     potentially_overlapping_date = month_after.first_day_of_month()
     if potentially_overlapping_date in df_before.index:
-        print("Fixing before", df_before.loc[potentially_overlapping_date])
+        LOGGER.info("Fixing before", df_before.loc[potentially_overlapping_date])
         df_after.loc[potentially_overlapping_date] = combine_rows_via_weighted_average(
             df_before.loc[potentially_overlapping_date],
             df_after.loc[potentially_overlapping_date],
@@ -271,7 +279,7 @@ def fix_first_and_last_days_of_consecutive_dfs(
 
     potentially_overlapping_date = month_before.last_day_of_month()
     if potentially_overlapping_date in df_after.index:
-        print("Fixing after", df_after.loc[potentially_overlapping_date])
+        LOGGER.info("Fixing after", df_after.loc[potentially_overlapping_date])
         df_before.loc[potentially_overlapping_date] = combine_rows_via_weighted_average(
             df_before.loc[potentially_overlapping_date],
             df_after.loc[potentially_overlapping_date],
