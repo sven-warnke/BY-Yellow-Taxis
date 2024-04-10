@@ -1,11 +1,12 @@
 import dataclasses
 import pathlib as pl
 import logging
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 import datetime
 import urllib.request
 
 import pandas as pd
+import pyarrow.parquet
 
 DATA_FOLDER = pl.Path(__file__).parent / 'data'
 
@@ -67,10 +68,62 @@ def acquire_parquet_file(month_id: MonthIdentifier) -> pl.Path:
     return target
 
 
+@dataclasses.dataclass
+class ColumnMapping:
+    pickup_time: str
+    dropoff_time: str
+    distance: str
+
+    def __post_init__(self):
+        if self.pickup_time == self.dropoff_time:
+            raise ValueError('Pickup and dropoff time must be different')
+        if self.pickup_time == self.distance:
+            raise ValueError('Pickup time and distance must be different')
+        if self.dropoff_time == self.distance:
+            raise ValueError('Dropoff time and distance must be different')
+
+    def mapping_dict(self) -> Dict[str, str]:
+        return {
+            self.pickup_time: 'tpep_pickup_datetime',
+            self.dropoff_time: 'tpep_dropoff_datetime',
+            self.distance: 'trip_distance'
+        }
+
+    def matches_columns(self, columns: List[str]) -> bool:
+        return self.pickup_time in columns and self.dropoff_time in columns and self.distance in columns
+
+    def column_names(self) -> List[str]:
+        return [self.pickup_time, self.dropoff_time, self.distance]
+
+
+def get_column_mapping(parquet_file: pl.Path) -> ColumnMapping:
+    column_names = pyarrow.parquet.ParquetFile(parquet_file).schema.names
+    possible_schemas = [
+        ColumnMapping('tpep_pickup_datetime', 'tpep_dropoff_datetime', 'trip_distance'),
+        ColumnMapping('Trip_Pickup_DateTime', 'Trip_Dropoff_DateTime', 'Trip_Distance'),
+        ColumnMapping('pickup_datetime', 'dropoff_datetime', 'trip_distance'),
+    ]
+
+    for schema in possible_schemas:
+        if schema.matches_columns(column_names):
+            return schema
+
+    raise ValueError(f'Could not find a matching schema for columns {column_names} in {parquet_file}')
+
+
+def read_parquet_file_with_different_schema(parquet_file: pl.Path) -> pd.DataFrame:
+    columns_mapping = get_column_mapping(parquet_file)
+
+    df = pd.read_parquet(parquet_file, columns=columns_mapping.column_names())
+    df = df.rename(columns=columns_mapping.mapping_dict())
+
+    return df
+
+
 def load_parquet_file(month_id: MonthIdentifier) -> pd.DataFrame:
     parquet_file = acquire_parquet_file(month_id)
 
-    df = pd.read_parquet(parquet_file, columns=['tpep_pickup_datetime', 'tpep_dropoff_datetime', 'trip_distance'])
+    df = read_parquet_file_with_different_schema(parquet_file)
 
     if df.isnull().any().any():
         # haven't found Nan values in the data yet, but I want to know if they appear
@@ -79,7 +132,7 @@ def load_parquet_file(month_id: MonthIdentifier) -> pd.DataFrame:
     for time_column in TIME_COLUMNS:
         if time_column not in df.columns:
             raise ValueError(f'Column {time_column} not found in the loaded DataFrame')
-        df[time_column] = df[time_column].dt.tz_localize(ASSUMED_ORIGIN_TZ)
+        df[time_column] = pd.to_datetime(df[time_column]).dt.tz_localize(ASSUMED_ORIGIN_TZ)
 
     df['trip_length_time'] = df['tpep_dropoff_datetime'] - df['tpep_pickup_datetime']
 
