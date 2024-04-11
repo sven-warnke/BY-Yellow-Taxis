@@ -14,6 +14,13 @@ class TimeWiseAverager(abc.ABC):
     @abc.abstractmethod
     def calculate_mean(self, daily_means_df: pd.DataFrame) -> pd.DataFrame:
         pass
+    
+    @abc.abstractmethod
+    def name(self):
+        """
+        Used to describe method in the report 
+        """
+        pass
 
     @staticmethod
     def _prepare_df_for_grouping_operations(
@@ -40,6 +47,9 @@ class RollingMean(TimeWiseAverager):
         return daily_means_df.rolling(self.window, on=c.DATE_COLUMN)[
             [c.DISTANCE_COLUMN, c.LENGTH_IN_MINS_COLUMN]
         ].mean()
+    
+    def name(self):
+        return f"Rolling mean {self.window}"
 
 
 class MonthlyMean(TimeWiseAverager):
@@ -55,3 +65,6 @@ class MonthlyMean(TimeWiseAverager):
             .reset_index()
         )
         return monthly_means
+    
+    def name(self):
+        return "Monthly mean"
