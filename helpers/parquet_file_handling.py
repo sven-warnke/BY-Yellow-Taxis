@@ -9,7 +9,7 @@ from typing import List, Tuple, Dict
 import pandas as pd
 import pyarrow.parquet
 
-DATA_FOLDER = pl.Path(__file__).parent / "data"
+DATA_FOLDER = pl.Path(__file__).parent.parent / "data"
 
 TIME_COLUMNS = ["tpep_pickup_datetime", "tpep_dropoff_datetime"]
 DEFINING_TIME_COLUMN = "tpep_pickup_datetime"
