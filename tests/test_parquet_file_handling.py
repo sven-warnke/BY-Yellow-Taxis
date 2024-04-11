@@ -97,7 +97,7 @@ def test_combine_dfs_via_weighted_average():
         }
     )
     df2 = df2.set_index("date")
-    result = parquet_file_handling.combine_dfs_via_weighted_average(df1, df2)
+    result = parquet_file_handling._combine_dfs_via_weighted_average(df1, df2)
     expected = pd.DataFrame(
         {
             "trip_distance": [5 / 3, 8 / 3, 11 / 3],

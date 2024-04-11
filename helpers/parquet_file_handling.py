@@ -73,11 +73,11 @@ class MonthIdentifier:
         )
 
 
-def parquet_file_name(month_id: MonthIdentifier) -> str:
+def _parquet_file_name(month_id: MonthIdentifier) -> str:
     return f"yellow_tripdata_{month_id.year}-{month_id.month:02}.parquet"
 
 
-def is_url_valid(url: str) -> bool:
+def _is_url_valid(url: str) -> bool:
     try:
         if urllib.request.urlopen(url).code == 200:
             return True
@@ -87,15 +87,15 @@ def is_url_valid(url: str) -> bool:
         return False
 
 
-def expected_parquet_file_url(month_id: MonthIdentifier) -> str:
+def _expected_parquet_file_url(month_id: MonthIdentifier) -> str:
     return (
-        f"https://d37ci6vzurychx.cloudfront.net/trip-data/{parquet_file_name(month_id)}"
+        f"https://d37ci6vzurychx.cloudfront.net/trip-data/{_parquet_file_name(month_id)}"
     )
 
 
-def acquire_parquet_file(month_id: MonthIdentifier) -> pl.Path:
-    url = expected_parquet_file_url(month_id)
-    target = DATA_FOLDER / parquet_file_name(month_id)
+def _acquire_parquet_file(month_id: MonthIdentifier) -> pl.Path:
+    url = _expected_parquet_file_url(month_id)
+    target = DATA_FOLDER / _parquet_file_name(month_id)
     target.parent.mkdir(parents=True, exist_ok=True)
 
     if target.exists():
@@ -149,7 +149,7 @@ class ColumnMapping:
         return [self.pickup_time, self.dropoff_time, self.distance]
 
 
-def get_column_mapping(parquet_file: pl.Path) -> ColumnMapping:
+def _get_column_mapping(parquet_file: pl.Path) -> ColumnMapping:
     column_names = pyarrow.parquet.ParquetFile(parquet_file).schema.names
 
     # these mappings were recognized so far in the data. If a new schema is encountered, it must be added here.
@@ -168,8 +168,8 @@ def get_column_mapping(parquet_file: pl.Path) -> ColumnMapping:
     )
 
 
-def read_parquet_file_with_unknown_schema(parquet_file: pl.Path) -> pd.DataFrame:
-    columns_mapping = get_column_mapping(parquet_file)
+def _read_parquet_file_with_unknown_schema(parquet_file: pl.Path) -> pd.DataFrame:
+    columns_mapping = _get_column_mapping(parquet_file)
 
     df = pd.read_parquet(parquet_file, columns=columns_mapping.column_names())
     df = df.rename(columns=columns_mapping.mapping_dict())
@@ -177,10 +177,10 @@ def read_parquet_file_with_unknown_schema(parquet_file: pl.Path) -> pd.DataFrame
     return df
 
 
-def load_parquet_file(month_id: MonthIdentifier) -> pd.DataFrame:
-    parquet_file = acquire_parquet_file(month_id)
+def _load_parquet_file(month_id: MonthIdentifier) -> pd.DataFrame:
+    parquet_file = _acquire_parquet_file(month_id)
 
-    df = read_parquet_file_with_unknown_schema(parquet_file)
+    df = _read_parquet_file_with_unknown_schema(parquet_file)
 
     if df.isnull().any().any():
         # haven't found Nan values in the data yet, but I want to know if they appear
@@ -199,7 +199,7 @@ def load_parquet_file(month_id: MonthIdentifier) -> pd.DataFrame:
     return df
 
 
-def filter_df_for_correct_time(
+def _filter_df_for_correct_time(
     df: pd.DataFrame, month_id: MonthIdentifier
 ) -> pd.DataFrame:
     buffer_slight_overlap = pd.Timedelta(
@@ -222,7 +222,7 @@ def filter_df_for_correct_time(
     return df[~out_of_range_indices]
 
 
-def remove_outliers(df: pd.DataFrame) -> pd.DataFrame:
+def _remove_outliers(df: pd.DataFrame) -> pd.DataFrame:
     """
     Remove outliers from the DataFrame. This function is very simple and only removes outliers based on a rough estimate.
     It could be improved by using a more sophisticated outlier detection algorithm.
@@ -244,16 +244,16 @@ def remove_outliers(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def load_filtered_parquet_file(month_id: MonthIdentifier) -> pd.DataFrame:
-    df = load_parquet_file(month_id)
-    df = filter_df_for_correct_time(df, month_id)
-    df = remove_outliers(
+def _load_filtered_parquet_file(month_id: MonthIdentifier) -> pd.DataFrame:
+    df = _load_parquet_file(month_id)
+    df = _filter_df_for_correct_time(df, month_id)
+    df = _remove_outliers(
         df
     )  # the potential effect of drastic outliers on the data is high, therefore they are removed
     return df
 
 
-def daily_means_from_df(df: pd.DataFrame) -> pd.DataFrame:
+def _daily_means_from_df(df: pd.DataFrame) -> pd.DataFrame:
     # here we use the timezone of New York, because the data is from New York
     df[DATE_COLUMN] = df[PICKUP_TIME_COLUMN].dt.tz_convert(NEW_YORK_TZ).dt.date
 
@@ -265,7 +265,7 @@ def daily_means_from_df(df: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def get_daily_means_for_month(month_id: MonthIdentifier) -> pd.DataFrame:
+def _get_daily_means_for_month(month_id: MonthIdentifier) -> pd.DataFrame:
     """
     Calculate the daily means for a month from a parquet file. Since this is a time-consuming operation, the result is saved
     to an intermediate file to make subsequent calls faster.
@@ -278,14 +278,14 @@ def get_daily_means_for_month(month_id: MonthIdentifier) -> pd.DataFrame:
         LOGGER.info(f"Loading intermediate result from {intermediate_result_file}")
         return pd.read_parquet(intermediate_result_file)
 
-    filtered_df = load_filtered_parquet_file(month_id)
-    daily_means_df = daily_means_from_df(filtered_df)
+    filtered_df = _load_filtered_parquet_file(month_id)
+    daily_means_df = _daily_means_from_df(filtered_df)
     intermediate_result_file.parent.mkdir(parents=True, exist_ok=True)
     daily_means_df.to_parquet(intermediate_result_file)
     return daily_means_df
 
 
-def get_months_in_range_inclusive(
+def _get_months_in_range_inclusive(
     start: MonthIdentifier, end: MonthIdentifier
 ) -> List[MonthIdentifier]:
     if start > end:
@@ -300,7 +300,7 @@ def get_months_in_range_inclusive(
     return months
 
 
-def weighted_sum_of_series(
+def _weighted_sum_of_series(
     values: Tuple[pd.Series, pd.Series], weights: Tuple[pd.Series, pd.Series]
 ) -> pd.Series:
     if any(weights[0] + weights[1] == 0):
@@ -311,14 +311,14 @@ def weighted_sum_of_series(
     return (values[0] * weights[0] + values[1] * weights[1]) / (weights[0] + weights[1])
 
 
-def fill_missing_dates_with_zeros(df: pd.DataFrame) -> pd.DataFrame:
+def _fill_missing_dates_with_zeros(df: pd.DataFrame) -> pd.DataFrame:
     df[DISTANCE_COLUMN] = df[DISTANCE_COLUMN].fillna(0)
     df[TIME_LENGTH_COLUMN] = df[TIME_LENGTH_COLUMN].fillna(pd.Timedelta("0s"))
     df[COUNT_COLUMN] = df[COUNT_COLUMN].fillna(0)
     return df
 
 
-def combine_dfs_via_weighted_average(
+def _combine_dfs_via_weighted_average(
     df1: pd.DataFrame, df2: pd.DataFrame
 ) -> pd.DataFrame:
     """
@@ -329,15 +329,15 @@ def combine_dfs_via_weighted_average(
 
     df1, df2 = df1.align(df2, join="outer")
 
-    df1 = fill_missing_dates_with_zeros(df1)
-    df2 = fill_missing_dates_with_zeros(df2)
+    df1 = _fill_missing_dates_with_zeros(df1)
+    df2 = _fill_missing_dates_with_zeros(df2)
 
-    sum_tripdistance = weighted_sum_of_series(
+    sum_tripdistance = _weighted_sum_of_series(
         values=(df1[DISTANCE_COLUMN], df2[DISTANCE_COLUMN]),
         weights=(df1[COUNT_COLUMN], df2[COUNT_COLUMN]),
     )
 
-    sum_trip_length_time = weighted_sum_of_series(
+    sum_trip_length_time = _weighted_sum_of_series(
         values=(df1[TIME_LENGTH_COLUMN], df2[TIME_LENGTH_COLUMN]),
         weights=(df1[COUNT_COLUMN], df2[COUNT_COLUMN]),
     )
@@ -355,7 +355,7 @@ def combine_dfs_via_weighted_average(
     return df_sum
 
 
-def combine_list_of_dfs(
+def _combine_list_of_dfs(
     list_of_dfs: List[pd.DataFrame],
 ) -> pd.DataFrame:
     if not list_of_dfs:
@@ -363,7 +363,7 @@ def combine_list_of_dfs(
 
     combined_df = list_of_dfs[0]
     for df in list_of_dfs[1:]:
-        combined_df = combine_dfs_via_weighted_average(combined_df, df)
+        combined_df = _combine_dfs_via_weighted_average(combined_df, df)
 
     return combined_df
 
@@ -371,18 +371,18 @@ def combine_list_of_dfs(
 def get_daily_means_in_range(
     start: MonthIdentifier, end: MonthIdentifier
 ) -> pd.DataFrame:
-    months = get_months_in_range_inclusive(start, end)
+    months = _get_months_in_range_inclusive(start, end)
 
     for m in months:
-        if not is_url_valid(expected_parquet_file_url(m)):
+        if not _is_url_valid(_expected_parquet_file_url(m)):
             raise ValueError(
                 f"No data available for {m} is not valid. Consider limiting the range."
             )
 
-    list_of_monthly_dfs = [get_daily_means_for_month(month_id) for month_id in months]
+    list_of_monthly_dfs = [_get_daily_means_for_month(month_id) for month_id in months]
 
     if not list_of_monthly_dfs:
         raise ValueError("No months found in range")
 
-    daily_means_df = combine_list_of_dfs(list_of_monthly_dfs)
+    daily_means_df = _combine_list_of_dfs(list_of_monthly_dfs)
     return daily_means_df
