@@ -12,7 +12,8 @@ def plot_metric_by_date(df: pd.DataFrame, metric: str) -> go.Figure:
 
 
 def plot_rolling_means_for_time_and_distance(
-    daily_means_df: pd.DataFrame, time_wise_averager: time_wise_averaging.TimeWiseAverager
+    daily_means_df: pd.DataFrame,
+    time_wise_averager: time_wise_averaging.TimeWiseAverager,
 ) -> go.Figure:
     averaged_df = time_wise_averager.calculate_mean(daily_means_df)
     distance_subplot = plot_metric_by_date(averaged_df, "trip_distance")
