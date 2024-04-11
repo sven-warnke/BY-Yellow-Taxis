@@ -8,9 +8,18 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--start-year", type=int, default=2009, help="Start year")
     parser.add_argument("--start-month", type=int, default=1, help="Start month")
-    parser.add_argument("--end-year", type=int, default=2024, help="End year (inclusive)")
-    parser.add_argument("--end-month", type=int, default=1, help="End month (inclusive)")
-    parser.add_argument("--output-path", type=pl.Path, default=pl.Path("reports/plots.html"), help="Output path of the report")
+    parser.add_argument(
+        "--end-year", type=int, default=2024, help="End year (inclusive)"
+    )
+    parser.add_argument(
+        "--end-month", type=int, default=1, help="End month (inclusive)"
+    )
+    parser.add_argument(
+        "--output-path",
+        type=pl.Path,
+        default=pl.Path("reports/plots.html"),
+        help="Output path of the report",
+    )
     args = parser.parse_args()
 
     start_month_id = parquet_file_handling.MonthIdentifier(
