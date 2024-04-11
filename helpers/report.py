@@ -4,9 +4,7 @@ import dominate
 from plotly import graph_objects as go
 
 
-def generate_report(
-    figures: List[go.Figure], headers: List[str], filename: str
-) -> None:
+def save_plots(figures: List[go.Figure], headers: List[str], filename: str) -> None:
     if len(figures) != len(headers):
         raise ValueError("Number of figures and headers must be the same")
 
