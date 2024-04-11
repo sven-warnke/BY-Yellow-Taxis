@@ -27,8 +27,8 @@ python create_report.py --start-year 2023
 ## Observations
 
 In the following, I will list some observations I made based on the plots I created:
-* average trip distance decreases in the winter months, probably due to the cold weather, which makes people less likely to walk
-* average trip duration increases in the winter months. This could have multiple reasons:
+* Average trip distance decreases in the winter months, probably due to the cold weather, which makes people less likely to walk
+* Average trip duration increases in the winter months. This could have multiple reasons:
     * due to weather conditions (snow, ice) taxis have to drive slower
     * there is more car traffic in the winter months, because people are less likely to walk
     * shorter trips are more likely to have a lower average speed than longer trips since the time to board and off-board is a larger part of the total trip time
