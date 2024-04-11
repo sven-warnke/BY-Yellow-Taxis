@@ -9,7 +9,7 @@ def main():
     parser.add_argument("--start-month", type=int, default=1)
     parser.add_argument("--end-year", type=int, default=2024)
     parser.add_argument("--end-month", type=int, default=1)
-    parser.add_argument("--output-path", type=str, default="plots.html")
+    parser.add_argument("--output-path", type=str, default="report/plots.html")
     args = parser.parse_args()
 
     start_month_id = parquet_file_handling.MonthIdentifier(
