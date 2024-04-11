@@ -122,6 +122,9 @@ class ColumnMapping:
             raise ValueError("Dropoff time and distance must be different")
 
     def mapping_dict(self) -> Dict[str, str]:
+        """
+        Used to rename columns in the DataFrame to a common schema 
+        """
         return {
             self.pickup_time: "tpep_pickup_datetime",
             self.dropoff_time: "tpep_dropoff_datetime",
@@ -216,8 +219,9 @@ def remove_outliers(df: pd.DataFrame) -> pd.DataFrame:
     Remove outliers from the DataFrame. This function is very simple and only removes outliers based on a rough estimate.
     It could be improved by using a more sophisticated outlier detection algorithm.
     """
+    # the limits are currently quite lenient and real trips outside of these limits should be rare
     limits = {
-        "trip_distance": (0, 100),
+        "trip_distance": (0, 200),  
         "trip_length_time": (pd.Timedelta("10s"), pd.Timedelta("24h")),
     }
 
