@@ -32,7 +32,11 @@ In the following, I will list some observations I made based on the plots I crea
 * Before 2014, the average trip distance and average time were both slightly increasing over time. 
 * After 2014, the average trip distance is decreasing, while the average trip duration is increasing. This could be due to the increasing traffic in New York City, which makes it harder to get around, and therefore increases the time it takes to get from A to B.
 * The pandemic is clearly visible as an anomaly in the data:
-  * trip length in time spiking downwards around April 2020 which roughly coincides with the first lockdown in New York City
+  * trip length in time spiking downwards around April 2020 which roughly coincides with the first lockdown in New York City. Potentially, trips were shorter in time because traffic was very low.
   * trip distance spiking upwards in June 2020, coinciding roughly with beginning of the reopening.
   * The matches are rough because the rolling average is taken over 45 days, so the effect lags a bit behind.
-* After the pandemic
+* After the pandemic, trip distance is a lot higher than before the pandemic. This is just speculation, but maybe this is an effect of more people working from home and less travelling for work because business people might be most inclined to use taxis for short distances since they usually get refunded for it.
+* Average speed seems to be better after the pandemic, maybe also due to less traffic caused by fewer people commuting for work.
+* What this data doesn't show us:
+  * how and why people are using taxis has a big influence on average trip distance and duration. 
+  * This is influenced a lot by the attractiveness of other modes of transport, e.g. public transport, biking, walking, e-scooters, other taxi-like modes of transport like e.g. Uber.
