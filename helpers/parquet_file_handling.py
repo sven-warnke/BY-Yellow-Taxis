@@ -321,6 +321,12 @@ def fill_missing_dates_with_zeros(df: pd.DataFrame) -> pd.DataFrame:
 def combine_dfs_via_weighted_average(
     df1: pd.DataFrame, df2: pd.DataFrame
 ) -> pd.DataFrame:
+    """
+    Combine two DataFrames via a weighted average. The DataFrames must have the same columns. That way one month having data
+    from adjacent months can be fixed without discarding the data. Updating the count is necessary to be able to combine
+    the resulting DataFrame later again with other DataFrames.
+    """
+
     df1, df2 = df1.align(df2, join="outer")
 
     df1 = fill_missing_dates_with_zeros(df1)
