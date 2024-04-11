@@ -3,8 +3,8 @@ from plotly import express as px
 from plotly import graph_objects as go
 from plotly import subplots
 
-from helpers import time_wise_averaging
 from helpers import constants as c
+from helpers import time_wise_averaging
 
 
 def plot_metric_by_date(df: pd.DataFrame, metric: str) -> go.Figure:
