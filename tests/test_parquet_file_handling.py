@@ -1,4 +1,4 @@
-import parquet_file_handling
+from helpers import parquet_file_handling
 import pytest
 import pandas as pd
 
