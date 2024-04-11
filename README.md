@@ -21,6 +21,9 @@ You can limit the data by passing e.g. the start year as an argument to the scri
 python create_report.py --start-year 2023
 ```
 
+## 45 day rolling average
+![alt text](https://github.com/sven-warnke/BY-Yellow-Taxis/blob/main/rolling_mean.png?raw=true)
+
 ## Observations
 
 In the following, I will list some observations I made based on the plots I created:
