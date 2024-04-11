@@ -7,7 +7,7 @@ poetry install
 
 
 ## Seeing the report
-You can find the plotted monthly averages and 45 day rolling mean of the trip distance and trip duration in the `report` folder. The report is named `plots.html`.
+You can find the interactive plots for monthly averages and 45 day rolling mean of the trip distance and trip duration in the `report` folder. The report is named `plots.html`.
 
 
 ## Recreating the report
