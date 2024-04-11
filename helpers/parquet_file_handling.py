@@ -376,6 +376,12 @@ def _combine_list_of_dfs(
 def get_daily_means_in_range(
     start: MonthIdentifier, end: MonthIdentifier
 ) -> pd.DataFrame:
+    """
+    Get the daily means for a range of months. The daily means are calculated from the parquet files for the months.
+    I decided to calculate the daily means for each month separately and then combine them to avoid memory issues. Since the
+    analysis is done on long time windows, it is sufficient to already average by day rather than having more granular data.
+    """
+
     months = _get_months_in_range_inclusive(start, end)
 
     for m in months:
