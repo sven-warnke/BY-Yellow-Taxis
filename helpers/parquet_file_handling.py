@@ -88,9 +88,7 @@ def _is_url_valid(url: str) -> bool:
 
 
 def _expected_parquet_file_url(month_id: MonthIdentifier) -> str:
-    return (
-        f"https://d37ci6vzurychx.cloudfront.net/trip-data/{_parquet_file_name(month_id)}"
-    )
+    return f"https://d37ci6vzurychx.cloudfront.net/trip-data/{_parquet_file_name(month_id)}"
 
 
 def _acquire_parquet_file(month_id: MonthIdentifier) -> pl.Path:
@@ -202,12 +200,19 @@ def _load_parquet_file(month_id: MonthIdentifier) -> pd.DataFrame:
 def _filter_df_for_correct_time(
     df: pd.DataFrame, month_id: MonthIdentifier
 ) -> pd.DataFrame:
-    buffer_slight_overlap = pd.Timedelta(
+    """
+    Remove entries from the DataFrame that are not in the month they are supposed to be in. This can happen due to 2 reasons:
+    1. The parquet file contains entries from the last day of the previous or first day of next month
+    2. The time of the entry is completely off, sometimes by years or decades
+    In the first case, entries should be kept if they are not off by too much. In the second case, the entries are and removed.
+    """
+
+    tolerance_slight_overlap = pd.Timedelta(
         1, unit="hour"
     )  # parquet files sometimes include a few entries from the next or previous month
 
-    start_limit = month_id.start_timestamp() - buffer_slight_overlap
-    end_limit = month_id.end_timestamp() + buffer_slight_overlap
+    start_limit = month_id.start_timestamp() - tolerance_slight_overlap
+    end_limit = month_id.end_timestamp() + tolerance_slight_overlap
 
     out_of_range_indices = (df[DEFINING_TIME_COLUMN] < start_limit) | (
         df[DEFINING_TIME_COLUMN] >= end_limit
