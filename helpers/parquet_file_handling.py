@@ -4,7 +4,7 @@ import logging
 import pathlib as pl
 import urllib.request
 import urllib.error
-from typing import List, Tuple, Dict
+from typing import List, Dict, Tuple
 
 import pandas as pd
 import pyarrow.parquet
@@ -123,7 +123,7 @@ class ColumnMapping:
 
     def mapping_dict(self) -> Dict[str, str]:
         """
-        Used to rename columns in the DataFrame to a common schema 
+        Used to rename columns in the DataFrame to a common schema
         """
         return {
             self.pickup_time: "tpep_pickup_datetime",
@@ -221,7 +221,7 @@ def remove_outliers(df: pd.DataFrame) -> pd.DataFrame:
     """
     # the limits are currently quite lenient and real trips outside of these limits should be rare
     limits = {
-        "trip_distance": (0, 200),  
+        "trip_distance": (0, 200),
         "trip_length_time": (pd.Timedelta("10s"), pd.Timedelta("24h")),
     }
 
@@ -292,71 +292,53 @@ def combine_rows_via_weighted_average(row1: pd.Series, row2: pd.Series) -> pd.Se
     ) / (row1["count"] + row2["count"])
 
 
-def fix_first_and_last_days_of_consecutive_dfs(
-    df_before: pd.DataFrame,
-    month_before: MonthIdentifier,
-    df_after: pd.DataFrame,
-    month_after: MonthIdentifier,
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """
-    The assignment of the first and last days of a month to a month is not always exactly correct within the parquet
-    files. I.e. the file for april might contain a few samples from 1st of may or 31st of march. In order to not have to
-    open multiple large parquet files at once, this function fixes the overlap between two months by combining the
-    data of the overlapping days via a weighted average.
-    """
-
-    if month_before.next_month() != month_after:
-        raise ValueError("Months must be consecutive")
-
-    if df_before.empty or df_after.empty:
-        return df_before, df_after
-
-    potentially_overlapping_date = month_after.first_day_of_month()
-    if potentially_overlapping_date in df_before.index:
-        LOGGER.info(
-            f"Fixing {potentially_overlapping_date} that landed in both {month_before} and {month_after}."
-        )
-        df_after.loc[potentially_overlapping_date] = combine_rows_via_weighted_average(
-            df_before.loc[potentially_overlapping_date],
-            df_after.loc[potentially_overlapping_date],
-        )
-        df_before = df_before.drop(potentially_overlapping_date)
-
-    potentially_overlapping_date = month_before.last_day_of_month()
-    if potentially_overlapping_date in df_after.index:
-        LOGGER.info(
-            f"Fixing {potentially_overlapping_date} that landed in both {month_before} and {month_after}."
-        )
-        df_before.loc[potentially_overlapping_date] = combine_rows_via_weighted_average(
-            df_before.loc[potentially_overlapping_date],
-            df_after.loc[potentially_overlapping_date],
-        )
-        df_after = df_after.drop(potentially_overlapping_date)
-
-    return df_before, df_after
+def weighted_sum_of_series(values: Tuple[pd.Series, pd.Series], weights: Tuple[pd.Series, pd.Series]) -> pd.Series:
+    if any(weights[0] + weights[1] == 0):
+        raise ValueError("Sum of weights must not be zero")  # should never happen in our case since days only appear if they have data
+    
+    return (values[0] * weights[0] + values[1] * weights[1]) / (weights[0] + weights[1])
 
 
-def fix_first_and_last_days_in_list_of_dfs(
-    month_daily_means_tuples: List[Tuple[MonthIdentifier, pd.DataFrame]],
-) -> List[pd.DataFrame]:
-    if len(month_daily_means_tuples) == 1:
-        return [month_daily_means_tuples[0][1]]
+def combine_dfs_via_weighted_average(
+    df1: pd.DataFrame, df2: pd.DataFrame
+) -> pd.DataFrame:
+    df1, df2 = df1.align(df2, join="outer")
 
-    daily_means = []
-    first_month, first_daily_means = month_daily_means_tuples[0]
+    df1["trip_distance"].fillna(0, inplace=True)
+    df1["trip_length_time"].fillna(0, inplace=True)
+    df1["count"].fillna(0, inplace=True)
+    df2["trip_distance"].fillna(0, inplace=True)
+    df2["count"].fillna(0, inplace=True)
+    df2["trip_length_time"].fillna(0, inplace=True)
 
-    for second_month, second_daily_means in month_daily_means_tuples[1:]:
-        first_daily_means, second_daily_means = (
-            fix_first_and_last_days_of_consecutive_dfs(
-                first_daily_means, first_month, second_daily_means, second_month
-            )
-        )
-        daily_means.append(first_daily_means)
-        first_month = second_month
-        first_daily_means = second_daily_means
+    sum_tripdistance = weighted_sum_of_series(
+        values=(df1["trip_distance"], df2["trip_distance"]),
+        weights=(df1["count"], df2["count"]),
+    )
+    
+    sum_trip_length_time = weighted_sum_of_series(
+        values=(df1["trip_length_time"], df2["trip_length_time"]),
+        weights=(df1["count"], df2["count"]),
+    )
 
-    daily_means.append(second_daily_means)
-    return daily_means
+    sum_weight = df1["count"] + df2["count"]
+
+    df_sum = pd.DataFrame({"trip_distance": sum_tripdistance, "trip_length_time": sum_trip_length_time, "count": sum_weight})
+
+    return df_sum
+
+
+def combine_list_of_dfs(
+    list_of_dfs: List[pd.DataFrame],
+) -> pd.DataFrame:
+    if not list_of_dfs:
+        raise ValueError("List of DataFrames is empty")
+
+    combined_df = list_of_dfs[0]
+    for df in list_of_dfs[1:]:
+        combined_df = combine_dfs_via_weighted_average(combined_df, df)
+
+    return combined_df
 
 
 def get_daily_means_in_range(
@@ -370,15 +352,12 @@ def get_daily_means_in_range(
                 f"No data available for {m} is not valid. Consider limiting the range."
             )
 
-    month_daily_means_tuples = [
-        (month_id, get_daily_means_for_month(month_id)) for month_id in months
+    list_of_monthly_dfs = [
+        get_daily_means_for_month(month_id) for month_id in months
     ]
 
-    if not month_daily_means_tuples:
+    if not list_of_monthly_dfs:
         raise ValueError("No months found in range")
 
-    daily_means_df_list = fix_first_and_last_days_in_list_of_dfs(
-        month_daily_means_tuples
-    )
-    daily_means_df = pd.concat(daily_means_df_list)
+    daily_means_df = combine_list_of_dfs(list_of_monthly_dfs)
     return daily_means_df
