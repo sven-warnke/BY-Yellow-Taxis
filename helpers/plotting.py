@@ -36,8 +36,10 @@ def plot_rolling_means_for_time_and_distance(
             "Trip distance in miles",
             "Trip length in minutes",
             "Speed in mph",
-        ),
+        )        
     )
+    fig.update_layout(title_text=time_wise_averager.name())
+    
     fig.add_trace(
         distance_subplot.data[0],
         row=1,
