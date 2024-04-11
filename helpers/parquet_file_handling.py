@@ -292,11 +292,22 @@ def combine_rows_via_weighted_average(row1: pd.Series, row2: pd.Series) -> pd.Se
     ) / (row1["count"] + row2["count"])
 
 
-def weighted_sum_of_series(values: Tuple[pd.Series, pd.Series], weights: Tuple[pd.Series, pd.Series]) -> pd.Series:
+def weighted_sum_of_series(
+    values: Tuple[pd.Series, pd.Series], weights: Tuple[pd.Series, pd.Series]
+) -> pd.Series:
     if any(weights[0] + weights[1] == 0):
-        raise ValueError("Sum of weights must not be zero")  # should never happen in our case since days only appear if they have data
-    
+        raise ValueError(
+            "Sum of weights must not be zero"
+        )  # should never happen in our case since days only appear if they have data
+
     return (values[0] * weights[0] + values[1] * weights[1]) / (weights[0] + weights[1])
+
+
+def fill_missing_dates_with_zeros(df: pd.DataFrame) -> pd.DataFrame:
+    df["trip_distance"] = df["trip_distance"].fillna(0)
+    df["trip_length_time"] = df["trip_length_time"].fillna(pd.Timedelta("0s"))
+    df["count"] = df["count"].fillna(0)
+    return df
 
 
 def combine_dfs_via_weighted_average(
@@ -304,18 +315,14 @@ def combine_dfs_via_weighted_average(
 ) -> pd.DataFrame:
     df1, df2 = df1.align(df2, join="outer")
 
-    df1["trip_distance"].fillna(0, inplace=True)
-    df1["trip_length_time"].fillna(0, inplace=True)
-    df1["count"].fillna(0, inplace=True)
-    df2["trip_distance"].fillna(0, inplace=True)
-    df2["count"].fillna(0, inplace=True)
-    df2["trip_length_time"].fillna(0, inplace=True)
+    df1 = fill_missing_dates_with_zeros(df1)
+    df2 = fill_missing_dates_with_zeros(df2)
 
     sum_tripdistance = weighted_sum_of_series(
         values=(df1["trip_distance"], df2["trip_distance"]),
         weights=(df1["count"], df2["count"]),
     )
-    
+
     sum_trip_length_time = weighted_sum_of_series(
         values=(df1["trip_length_time"], df2["trip_length_time"]),
         weights=(df1["count"], df2["count"]),
@@ -323,7 +330,13 @@ def combine_dfs_via_weighted_average(
 
     sum_weight = df1["count"] + df2["count"]
 
-    df_sum = pd.DataFrame({"trip_distance": sum_tripdistance, "trip_length_time": sum_trip_length_time, "count": sum_weight})
+    df_sum = pd.DataFrame(
+        {
+            "trip_distance": sum_tripdistance,
+            "trip_length_time": sum_trip_length_time,
+            "count": sum_weight,
+        }
+    )
 
     return df_sum
 
@@ -352,9 +365,7 @@ def get_daily_means_in_range(
                 f"No data available for {m} is not valid. Consider limiting the range."
             )
 
-    list_of_monthly_dfs = [
-        get_daily_means_for_month(month_id) for month_id in months
-    ]
+    list_of_monthly_dfs = [get_daily_means_for_month(month_id) for month_id in months]
 
     if not list_of_monthly_dfs:
         raise ValueError("No months found in range")
