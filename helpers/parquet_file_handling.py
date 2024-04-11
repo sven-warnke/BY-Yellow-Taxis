@@ -281,6 +281,7 @@ def get_daily_means_for_month(month_id: MonthIdentifier) -> pd.DataFrame:
 
     filtered_df = load_filtered_parquet_file(month_id)
     daily_means_df = daily_means_from_df(filtered_df)
+    intermediate_result_file.parent.mkdir(parents=True, exist_ok=True)
     daily_means_df.to_parquet(intermediate_result_file)
     return daily_means_df
 
