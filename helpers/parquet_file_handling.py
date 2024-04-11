@@ -10,6 +10,7 @@ import pandas as pd
 import pyarrow.parquet
 
 DATA_FOLDER = pl.Path(__file__).parent.parent / "data"
+INTERMEDIATE_DATA_FOLDER = DATA_FOLDER / "intermediate"
 
 TIME_COLUMNS = ["tpep_pickup_datetime", "tpep_dropoff_datetime"]
 DEFINING_TIME_COLUMN = "tpep_pickup_datetime"
@@ -258,8 +259,22 @@ def daily_means_from_df(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_daily_means_for_month(month_id: MonthIdentifier) -> pd.DataFrame:
+    """
+    Calculate the daily means for a month from a parquet file. Since this is a time-consuming operation, the result is saved
+    to an intermediate file to make subsequent calls faster.
+    """
+    intermediate_result_file = (
+        INTERMEDIATE_DATA_FOLDER
+        / f"daily_means_{month_id.year}_{month_id.month:02}.parquet"
+    )
+    if intermediate_result_file.exists():
+        LOGGER.info(f"Loading intermediate result from {intermediate_result_file}")
+        return pd.read_parquet(intermediate_result_file)
+
     filtered_df = load_filtered_parquet_file(month_id)
-    return daily_means_from_df(filtered_df)
+    daily_means_df = daily_means_from_df(filtered_df)
+    daily_means_df.to_parquet(intermediate_result_file)
+    return daily_means_df
 
 
 def get_months_in_range_inclusive(
@@ -275,21 +290,6 @@ def get_months_in_range_inclusive(
         current = current.next_month()
 
     return months
-
-
-def combine_rows_via_weighted_average(row1: pd.Series, row2: pd.Series) -> pd.Series:
-    if row1.name != row2.name:
-        raise ValueError("Rows must have the same index")
-
-    return pd.Series(
-        {
-            "trip_distance": row1["trip_distance"] * row1["count"]
-            + row2["trip_distance"] * row2["count"],
-            "trip_length_time": row1["trip_length_time"] * row1["count"]
-            + row2["trip_length_time"] * row2["count"],
-            "count": row1["count"] + row2["count"],
-        }
-    ) / (row1["count"] + row2["count"])
 
 
 def weighted_sum_of_series(
