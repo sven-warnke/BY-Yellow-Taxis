@@ -12,8 +12,17 @@ import pyarrow.parquet
 DATA_FOLDER = pl.Path(__file__).parent.parent / "data"
 INTERMEDIATE_DATA_FOLDER = DATA_FOLDER / "intermediate"
 
-TIME_COLUMNS = ["tpep_pickup_datetime", "tpep_dropoff_datetime"]
-DEFINING_TIME_COLUMN = "tpep_pickup_datetime"
+PICKUP_TIME_COLUMN = "pickup_datetime"
+DROPOFF_TIME_COLUMN = "dropoff_datetime"
+DISTANCE_COLUMN = "trip_distance"
+
+TIME_COLUMNS = [PICKUP_TIME_COLUMN, DROPOFF_TIME_COLUMN]
+DEFINING_TIME_COLUMN = PICKUP_TIME_COLUMN
+
+# columns created by the program
+TIME_LENGTH_COLUMN = "trip_length_time"
+DATE_COLUMN = "date"
+COUNT_COLUMN = "count"
 
 ASSUMED_ORIGIN_TZ = "UTC"
 NEW_YORK_TZ = "US/Eastern"
@@ -127,9 +136,9 @@ class ColumnMapping:
         Used to rename columns in the DataFrame to a common schema
         """
         return {
-            self.pickup_time: "tpep_pickup_datetime",
-            self.dropoff_time: "tpep_dropoff_datetime",
-            self.distance: "trip_distance",
+            self.pickup_time: PICKUP_TIME_COLUMN,
+            self.dropoff_time: DROPOFF_TIME_COLUMN,
+            self.distance: DISTANCE_COLUMN,
         }
 
     def matches_columns(self, columns: List[str]) -> bool:
@@ -187,7 +196,7 @@ def load_parquet_file(month_id: MonthIdentifier) -> pd.DataFrame:
             ASSUMED_ORIGIN_TZ  # sometimes times get not correctly recognized as times. I assume that all times are in UTC
         )
 
-    df["trip_length_time"] = df["tpep_dropoff_datetime"] - df["tpep_pickup_datetime"]
+    df[TIME_LENGTH_COLUMN] = df[DROPOFF_TIME_COLUMN] - df[PICKUP_TIME_COLUMN]
 
     return df
 
@@ -222,8 +231,8 @@ def remove_outliers(df: pd.DataFrame) -> pd.DataFrame:
     """
     # the limits are currently quite lenient and real trips outside of these limits should be rare
     limits = {
-        "trip_distance": (0, 200),
-        "trip_length_time": (pd.Timedelta("10s"), pd.Timedelta("24h")),
+        DISTANCE_COLUMN: (0, 200),
+        TIME_LENGTH_COLUMN: (pd.Timedelta("10s"), pd.Timedelta("24h")),
     }
 
     for column, (lower, upper) in limits.items():
@@ -248,13 +257,13 @@ def load_filtered_parquet_file(month_id: MonthIdentifier) -> pd.DataFrame:
 
 def daily_means_from_df(df: pd.DataFrame) -> pd.DataFrame:
     # here we use the timezone of New York, because the data is from New York
-    df["date"] = df["tpep_pickup_datetime"].dt.tz_convert(NEW_YORK_TZ).dt.date
+    df[DATE_COLUMN] = df[PICKUP_TIME_COLUMN].dt.tz_convert(NEW_YORK_TZ).dt.date
 
     # also collect count to be able to combine dataframes later
-    return df.groupby("date").agg(
-        trip_distance=("trip_distance", "mean"),
-        trip_length_time=("trip_length_time", "mean"),
-        count=("trip_distance", "count"),
+    return df.groupby(DATE_COLUMN).agg(
+        trip_distance=(DISTANCE_COLUMN, "mean"),
+        trip_length_time=(TIME_LENGTH_COLUMN, "mean"),
+        count=(DISTANCE_COLUMN, "count"),
     )
 
 
@@ -304,9 +313,9 @@ def weighted_sum_of_series(
 
 
 def fill_missing_dates_with_zeros(df: pd.DataFrame) -> pd.DataFrame:
-    df["trip_distance"] = df["trip_distance"].fillna(0)
-    df["trip_length_time"] = df["trip_length_time"].fillna(pd.Timedelta("0s"))
-    df["count"] = df["count"].fillna(0)
+    df[DISTANCE_COLUMN] = df[DISTANCE_COLUMN].fillna(0)
+    df[TIME_LENGTH_COLUMN] = df[TIME_LENGTH_COLUMN].fillna(pd.Timedelta("0s"))
+    df[COUNT_COLUMN] = df[COUNT_COLUMN].fillna(0)
     return df
 
 
@@ -319,22 +328,22 @@ def combine_dfs_via_weighted_average(
     df2 = fill_missing_dates_with_zeros(df2)
 
     sum_tripdistance = weighted_sum_of_series(
-        values=(df1["trip_distance"], df2["trip_distance"]),
-        weights=(df1["count"], df2["count"]),
+        values=(df1[DISTANCE_COLUMN], df2[DISTANCE_COLUMN]),
+        weights=(df1[COUNT_COLUMN], df2[COUNT_COLUMN]),
     )
 
     sum_trip_length_time = weighted_sum_of_series(
-        values=(df1["trip_length_time"], df2["trip_length_time"]),
-        weights=(df1["count"], df2["count"]),
+        values=(df1[TIME_LENGTH_COLUMN], df2[TIME_LENGTH_COLUMN]),
+        weights=(df1[COUNT_COLUMN], df2[COUNT_COLUMN]),
     )
 
-    sum_weight = df1["count"] + df2["count"]
+    sum_weight = df1[COUNT_COLUMN] + df2[COUNT_COLUMN]
 
     df_sum = pd.DataFrame(
         {
-            "trip_distance": sum_tripdistance,
-            "trip_length_time": sum_trip_length_time,
-            "count": sum_weight,
+            DISTANCE_COLUMN: sum_tripdistance,
+            TIME_LENGTH_COLUMN: sum_trip_length_time,
+            COUNT_COLUMN: sum_weight,
         }
     )
 
