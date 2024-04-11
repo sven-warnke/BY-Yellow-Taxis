@@ -2,8 +2,8 @@ import dataclasses
 import datetime
 import logging
 import pathlib as pl
-import urllib.request
 import urllib.error
+import urllib.request
 from typing import List, Dict, Tuple
 
 import pandas as pd
@@ -23,7 +23,6 @@ from helpers.constants import (
     ASSUMED_ORIGIN_TZ,
     NEW_YORK_TZ,
 )
-
 
 LOGGER = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
