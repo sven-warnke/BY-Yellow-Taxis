@@ -378,5 +378,3 @@ def get_daily_means_in_range(
     )
     daily_means_df = pd.concat(daily_means_df_list)
     return daily_means_df
-
-

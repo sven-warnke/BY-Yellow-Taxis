@@ -3,8 +3,6 @@ import abc
 import pandas as pd
 
 
-
-
 class TimeWiseAverager(abc.ABC):
     """
     As per the definition in the coding challenge, there are already 2 ways mentioned of calculating the mean of the

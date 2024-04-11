@@ -1,10 +1,7 @@
-
 import pandas as pd
 from plotly import express as px
 from plotly import graph_objects as go
 from plotly import subplots
-
-
 
 
 def plot_metric(df: pd.DataFrame, metric: str) -> go.Figure:
