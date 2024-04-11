@@ -4,10 +4,11 @@ from plotly import graph_objects as go
 from plotly import subplots
 
 from helpers import time_wise_averaging
+from helpers import constants as c
 
 
 def plot_metric_by_date(df: pd.DataFrame, metric: str) -> go.Figure:
-    fig = px.line(df, x="date", y=metric, markers=True)
+    fig = px.line(df, x=c.DATE_COLUMN, y=metric, markers=True)
     return fig
 
 
@@ -16,16 +17,16 @@ def plot_rolling_means_for_time_and_distance(
     time_wise_averager: time_wise_averaging.TimeWiseAverager,
 ) -> go.Figure:
     averaged_df = time_wise_averager.calculate_mean(daily_means_df)
-    distance_subplot = plot_metric_by_date(averaged_df, "trip_distance")
-    time_subplot = plot_metric_by_date(averaged_df, "trip_length_in_mins")
+    distance_subplot = plot_metric_by_date(averaged_df, c.DISTANCE_COLUMN)
+    time_subplot = plot_metric_by_date(averaged_df, c.LENGTH_IN_MINS_COLUMN)
 
     # the speed is not part of the problem statement, but it is a simple calculation that can be added
     # and it is a useful metric for the data to draw conclusions from
-    averaged_df["speed_in_mph"] = averaged_df["trip_distance"] / (
-        averaged_df["trip_length_in_mins"] / 60
+    averaged_df[c.SPEED_COLUMN] = averaged_df[c.DISTANCE_COLUMN] / (
+        averaged_df[c.LENGTH_IN_MINS_COLUMN] / 60
     )
 
-    speed_subplot = plot_metric_by_date(averaged_df, "speed_in_mph")
+    speed_subplot = plot_metric_by_date(averaged_df, c.SPEED_COLUMN)
 
     fig = subplots.make_subplots(
         rows=3,

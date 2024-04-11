@@ -9,23 +9,21 @@ from typing import List, Dict, Tuple
 import pandas as pd
 import pyarrow.parquet
 
-DATA_FOLDER = pl.Path(__file__).parent.parent / "data"
-INTERMEDIATE_DATA_FOLDER = DATA_FOLDER / "intermediate"
+from helpers.constants import (
+    DATA_FOLDER,
+    INTERMEDIATE_DATA_FOLDER,
+    PICKUP_TIME_COLUMN,
+    DROPOFF_TIME_COLUMN,
+    DISTANCE_COLUMN,
+    TIME_COLUMNS,
+    DEFINING_TIME_COLUMN,
+    TIME_LENGTH_COLUMN,
+    DATE_COLUMN,
+    COUNT_COLUMN,
+    ASSUMED_ORIGIN_TZ,
+    NEW_YORK_TZ,
+)
 
-PICKUP_TIME_COLUMN = "pickup_datetime"
-DROPOFF_TIME_COLUMN = "dropoff_datetime"
-DISTANCE_COLUMN = "trip_distance"
-
-TIME_COLUMNS = [PICKUP_TIME_COLUMN, DROPOFF_TIME_COLUMN]
-DEFINING_TIME_COLUMN = PICKUP_TIME_COLUMN
-
-# columns created by the program
-TIME_LENGTH_COLUMN = "trip_length_time"
-DATE_COLUMN = "date"
-COUNT_COLUMN = "count"
-
-ASSUMED_ORIGIN_TZ = "UTC"
-NEW_YORK_TZ = "US/Eastern"
 
 LOGGER = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -193,7 +191,8 @@ def load_parquet_file(month_id: MonthIdentifier) -> pd.DataFrame:
         if time_column not in df.columns:
             raise ValueError(f"Column {time_column} not found in the loaded DataFrame")
         df[time_column] = pd.to_datetime(df[time_column]).dt.tz_localize(
-            ASSUMED_ORIGIN_TZ  # sometimes times get not correctly recognized as times. I assume that all times are in UTC
+            ASSUMED_ORIGIN_TZ
+            # sometimes times get not correctly recognized as times. I assume that all times are in UTC
         )
 
     df[TIME_LENGTH_COLUMN] = df[DROPOFF_TIME_COLUMN] - df[PICKUP_TIME_COLUMN]
