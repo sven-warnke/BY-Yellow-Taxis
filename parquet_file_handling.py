@@ -5,13 +5,9 @@ import pathlib as pl
 import urllib.request
 import urllib.error
 from typing import List, Tuple, Dict
-import abc
 
 import pandas as pd
 import pyarrow.parquet
-from plotly import express as px
-from plotly import graph_objects as go
-from plotly import subplots
 
 DATA_FOLDER = pl.Path(__file__).parent / "data"
 
@@ -384,103 +380,3 @@ def get_daily_means_in_range(
     return daily_means_df
 
 
-class TimeWiseAverager(abc.ABC):
-    """
-    As per the definition in the coding challenge, there are already 2 ways mentioned of calculating the mean of the
-    trip distance and trip length in minutes over different time windows. This class is an abstract class that defines
-    the interface for these sort of calculations in general.
-    """
-
-    @abc.abstractmethod
-    def calculate_mean(self, daily_means_df: pd.DataFrame) -> pd.DataFrame:
-        pass
-
-    @staticmethod
-    def _prepare_df_for_grouping_operations(
-        daily_means_df: pd.DataFrame,
-    ) -> pd.DataFrame:
-        if daily_means_df.index.name != "date":
-            raise ValueError("Index must be date")
-        daily_means_df = daily_means_df.sort_index().reset_index()
-        daily_means_df["date"] = pd.to_datetime(daily_means_df["date"])
-        daily_means_df["trip_length_in_mins"] = (
-            daily_means_df["trip_length_time"].dt.total_seconds() / 60
-        )
-        return daily_means_df
-
-
-class RollingMean(TimeWiseAverager):
-    def __init__(self, window: str = "45D"):
-        self.window = window
-
-    def calculate_mean(self, daily_means_df: pd.DataFrame) -> pd.DataFrame:
-        daily_means_df = TimeWiseAverager._prepare_df_for_grouping_operations(
-            daily_means_df
-        )
-        return daily_means_df.rolling(self.window, on="date")[
-            ["trip_distance", "trip_length_in_mins"]
-        ].mean()
-
-
-class MonthlyMean(TimeWiseAverager):
-    def calculate_mean(self, daily_means_df: pd.DataFrame) -> pd.DataFrame:
-        daily_means_df = TimeWiseAverager._prepare_df_for_grouping_operations(
-            daily_means_df
-        )
-        monthly_means = (
-            daily_means_df.groupby(pd.Grouper(key="date", freq="ME"))[
-                ["trip_distance", "trip_length_in_mins"]
-            ]
-            .mean()
-            .reset_index()
-        )
-        return monthly_means
-
-
-def plot_metric(df: pd.DataFrame, metric: str) -> go.Figure:
-    fig = px.line(df, x="date", y=metric, markers=True)
-    return fig
-
-
-def plot_rolling_means_for_time_and_distance(
-    daily_means_df: pd.DataFrame, time_wise_averager: TimeWiseAverager
-) -> go.Figure:
-    averaged_df = time_wise_averager.calculate_mean(daily_means_df)
-    distance_subplot = plot_metric(averaged_df, "trip_distance")
-    time_subplot = plot_metric(averaged_df, "trip_length_in_mins")
-
-    # the speed is not part of the problem statement, but it is a simple calculation that can be added
-    # and it is a useful metric for the data to draw conclusions from
-    averaged_df["speed_in_mph"] = averaged_df["trip_distance"] / (
-        averaged_df["trip_length_in_mins"] / 60
-    )
-
-    speed_subplot = plot_metric(averaged_df, "speed_in_mph")
-
-    fig = subplots.make_subplots(
-        rows=3,
-        cols=1,
-        shared_xaxes=True,
-        subplot_titles=(
-            "Trip distance in miles",
-            "Trip length in minutes",
-            "Speed in mph",
-        ),
-    )
-    fig.add_trace(
-        distance_subplot.data[0],
-        row=1,
-        col=1,
-    )
-    fig.add_trace(
-        time_subplot.data[0],
-        row=2,
-        col=1,
-    )
-    fig.add_trace(
-        speed_subplot.data[0],
-        row=3,
-        col=1,
-    )
-
-    return fig
